@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
-import { CustomerSummary, listCustomerTransactions, parseTs, Transaction } from "../db/repo";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { CustomerSummary, listCustomerTransactions, markTransactionPaid, parseTs, Transaction } from "../db/repo";
 import { Badge, Button, Card, EmptyState } from "../ui/components";
 import { colors, formatPHP, space, type } from "../ui/theme";
 
@@ -14,20 +14,37 @@ const tierName = (days: number) => (days === 30 ? "1 Month" : `${days} ${days ==
 export default function CustomerDetailScreen({ customer, onBack }: Props) {
   const [rows, setRows] = useState<Transaction[]>([]);
 
+  const load = useCallback(() => listCustomerTransactions(customer.id).then(setRows), [customer.id]);
+
   useEffect(() => {
-    listCustomerTransactions(customer.id).then(setRows);
-  }, [customer.id]);
+    load();
+  }, [load]);
+
+  function confirmPaid(t: Transaction) {
+    Alert.alert("Mark as paid?", `${tierName(t.duration_days)} - ${formatPHP(t.amount_received)}. This cannot be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Mark paid",
+        onPress: async () => {
+          await markTransactionPaid(t.id);
+          load();
+        },
+      },
+    ]);
+  }
+
+  // Totals come from the loaded rows so they update right after marking something paid.
+  const paid = rows.filter((r) => r.status === "Paid").reduce((sum, r) => sum + r.amount_received, 0);
+  const owes = rows.filter((r) => r.status === "Unpaid").reduce((sum, r) => sum + r.amount_received, 0);
 
   return (
     <View style={s.container}>
       <Button title="Back to clients" variant="secondary" onPress={onBack} />
       <Card>
         <Text style={s.name}>{customer.name}</Text>
-        <Text style={s.line}>{customer.total_visits} visits</Text>
-        <Text style={s.line}>Total spent: {formatPHP(customer.lifetime_value)}</Text>
-        {customer.outstanding_debt > 0 && (
-          <Text style={s.debt}>Owes {formatPHP(customer.outstanding_debt)}</Text>
-        )}
+        <Text style={s.line}>{rows.length} visits</Text>
+        <Text style={s.line}>Total spent: {formatPHP(paid)}</Text>
+        {owes > 0 && <Text style={s.debt}>Owes {formatPHP(owes)}</Text>}
       </Card>
       <FlatList
         data={rows}
@@ -37,11 +54,18 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
           <View style={s.row}>
             <View style={s.rowMain}>
               <Text style={s.rowTitle}>{tierName(item.duration_days)}</Text>
-              <Text style={s.muted}>{parseTs(item.timestamp).toLocaleString()}</Text>
+              <Text style={s.muted}>
+                {parseTs(item.timestamp).toLocaleString()}
+                {item.synced ? "" : " - pending"}
+              </Text>
             </View>
             <View style={s.rowEnd}>
               <Text style={s.rowTitle}>{formatPHP(item.amount_received)}</Text>
-              <Badge label={item.status} color={item.status === "Paid" ? colors.success : colors.danger} />
+              {item.status === "Paid" ? (
+                <Badge label="Paid" color={colors.success} />
+              ) : (
+                <Button title="Mark paid" variant="secondary" onPress={() => confirmPaid(item)} />
+              )}
             </View>
           </View>
         )}

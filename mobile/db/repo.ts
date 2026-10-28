@@ -192,7 +192,13 @@ export async function upsertTransaction(t: {
     "SELECT id FROM transactions WHERE id = ?",
     t.id
   );
-  if (existing) return; // immutable: never overwrite a row we already have
+  if (existing) {
+    // Rows are immutable except Unpaid to Paid, which the server allows in one direction only.
+    if (t.status === "Paid") {
+      await db.runAsync("UPDATE transactions SET status = 'Paid', synced = 1 WHERE id = ? AND status = 'Unpaid'", t.id);
+    }
+    return;
+  }
   await db.runAsync(
     `INSERT INTO transactions
       (id, customer_id, device_id, amount_received, duration_days, status, timestamp, synced)
@@ -259,6 +265,12 @@ export async function listCustomerSummaries(): Promise<CustomerSummary[]> {
      GROUP BY c.id, c.name
      ORDER BY c.name COLLATE NOCASE`
   );
+}
+
+// Marks an unpaid transaction as paid and queues it for the next sync.
+export async function markTransactionPaid(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE transactions SET status = 'Paid', synced = 0 WHERE id = ? AND status = 'Unpaid'", id);
 }
 
 export async function listCustomerTransactions(customerId: string): Promise<Transaction[]> {
