@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import BarChart from "@/components/BarChart";
+import ConnectionBadge, { CutoffCell } from "@/components/ConnectionBadge";
 import CountUp from "@/components/CountUp";
 import Icon from "@/components/Icon";
-import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, StatCard, TableSkeleton } from "@/components/ui";
+import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, Segmented, StatCard, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
+import { connectionsByCustomer } from "@/lib/connection";
 import { formatPHP } from "@/lib/format";
 import { dailyReceived, Exp, startOfMonth, totals, Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
@@ -20,7 +22,10 @@ interface DashboardRow {
   outstanding_debt: number;
 }
 
-type SortKey = "name" | "total_visits" | "lifetime_value" | "outstanding_debt";
+type SortKey = "name" | "cutoff" | "total_visits" | "lifetime_value" | "outstanding_debt";
+type ConnFilter = "all" | "connected" | "cutoff";
+
+const CONN_FILTERS: [ConnFilter, string][] = [["all", "All"], ["connected", "Connected"], ["cutoff", "Cut off"]];
 
 const PAGE = 25;
 const load = () =>
@@ -31,21 +36,32 @@ export default function DashboardPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
+  const [connFilter, setConnFilter] = useState<ConnFilter>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "outstanding_debt", dir: -1 });
   const [limit, setLimit] = useState(PAGE);
+
+  const conns = useMemo(() => connectionsByCustomer(data?.[1] ?? []), [data]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (data?.[0] ?? [])
       .filter((r) => r.name.toLowerCase().includes(q) && (!owesOnly || r.outstanding_debt > 0))
+      .filter((r) => connFilter === "all" || conns.get(r.id)?.state === connFilter)
       .sort((a, b) => {
-        const diff = sort.key === "name" ? a.name.localeCompare(b.name) : a[sort.key] - b[sort.key];
+        const expiry = (id: string) => conns.get(id)?.expiry ?? Infinity;
+        const diff =
+          sort.key === "name"
+            ? a.name.localeCompare(b.name)
+            : sort.key === "cutoff"
+              ? expiry(a.id) - expiry(b.id)
+              : a[sort.key] - b[sort.key];
         return diff * sort.dir || a.name.localeCompare(b.name);
       });
-  }, [data, query, owesOnly, sort]);
+  }, [data, conns, query, owesOnly, connFilter, sort]);
 
   function sortBy(key: SortKey) {
-    setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : key === "name" ? 1 : -1 }));
+    // Names and cut-off dates start ascending (soonest cut-off first); money and counts start high to low.
+    setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : key === "name" || key === "cutoff" ? 1 : -1 }));
   }
 
   const header = (key: SortKey, label: string, num = false) => (
@@ -111,6 +127,7 @@ export default function DashboardPage() {
         <button className="chip" aria-pressed={owesOnly} onClick={() => setOwesOnly(!owesOnly)}>
           Owes
         </button>
+        <Segmented label="Connection" options={CONN_FILTERS} value={connFilter} onChange={setConnFilter} />
         <span className="spacer" />
         <span style={{ color: "var(--muted)" }}>{rows.length} customers</span>
       </div>
@@ -128,6 +145,8 @@ export default function DashboardPage() {
             <thead>
               <tr>
                 {header("name", "Customer")}
+                <th>Wi-Fi</th>
+                {header("cutoff", "Cut-off date & time")}
                 {header("total_visits", "Visits", true)}
                 {header("lifetime_value", "Lifetime value", true)}
                 {header("outstanding_debt", "Owes", true)}
@@ -147,6 +166,10 @@ export default function DashboardPage() {
                       </Link>
                     </div>
                   </td>
+                  <td>
+                    <ConnectionBadge conn={conns.get(r.id)} />
+                  </td>
+                  <CutoffCell conn={conns.get(r.id)} />
                   <td className="num">{r.total_visits}</td>
                   <td className="num">{formatPHP(r.lifetime_value)}</td>
                   <td className="num">{r.outstanding_debt > 0 ? <Badge tone="danger">{formatPHP(r.outstanding_debt)}</Badge> : "-"}</td>

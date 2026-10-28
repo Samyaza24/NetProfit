@@ -6,6 +6,7 @@ import { useCallback, useMemo } from "react";
 import Icon from "@/components/Icon";
 import { Badge, EmptyState, ErrorState, PageHeader, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
+import { connectionOf, cutoffInfo } from "@/lib/connection";
 import { formatClock, formatDay, formatNum, formatPHP, parseTs, timeAgo, tierLabel } from "@/lib/format";
 import { Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
@@ -53,6 +54,8 @@ export default function CustomerPage() {
   const paid = rows.filter((t) => t.status === "Paid").reduce((s, t) => s + t.amount_received, 0);
   const owes = rows.filter((t) => t.status === "Unpaid").reduce((s, t) => s + t.amount_received, 0);
   const last = rows[0]?.timestamp ?? null;
+  const conn = connectionOf(rows.map((t) => ({ at: parseTs(t.timestamp).getTime(), days: t.duration_days })));
+  const cutoff = cutoffInfo(conn);
 
   return (
     <>
@@ -67,6 +70,17 @@ export default function CustomerPage() {
       </PageHeader>
 
       <SummaryGrid>
+        <StatCard
+          tone={conn.state === "connected" ? "pos" : undefined}
+          label="Wi-Fi connection"
+          value={conn.state === "connected" ? "Connected" : conn.state === "cutoff" ? "Cut off" : "No plan"}
+          sub={conn.state === "none" ? "No plan bought yet" : conn.state === "connected" ? "Plan still running" : "Plan has ended"}
+        />
+        <StatCard
+          label={conn.state === "cutoff" ? "Was cut off on" : "Cut-off date & time"}
+          value={cutoff ? cutoff.day : "-"}
+          sub={cutoff ? `${cutoff.clock} - ${cutoff.rel}` : "Buy a plan to set one"}
+        />
         <StatCard label="Visits" value={String(rows.length)} sub="Transactions recorded" />
         <StatCard tone="pos" label="Total spent" value={formatPHP(paid)} sub="Paid so far" />
         <StatCard tone={owes > 0 ? "neg" : undefined} label="Owes" value={formatPHP(owes)} sub={owes > 0 ? "Unpaid balance" : "All paid up"} />
