@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { CustomerSummary, listCustomerSummaries } from "../db/repo";
+import { CustomerSummary, listConnections, listCustomerSummaries } from "../db/repo";
+import { Connection, cutoffText } from "../lib/connection";
 import { Badge, Chip, EmptyState } from "../ui/components";
 import FadeIn from "../ui/FadeIn";
 import Icon from "../ui/Icon";
@@ -9,12 +10,15 @@ import CustomerDetailScreen from "./CustomerDetailScreen";
 
 export default function CustomersScreen() {
   const [rows, setRows] = useState<CustomerSummary[] | null>(null);
+  const [conns, setConns] = useState<Record<string, Connection>>({});
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
+  const [connFilter, setConnFilter] = useState<"all" | "connected" | "cutoff">("all");
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
 
   useEffect(() => {
     listCustomerSummaries().then(setRows);
+    listConnections().then(setConns);
   }, []);
 
   // Android back closes the detail view instead of leaving the screen.
@@ -30,18 +34,28 @@ export default function CustomersScreen() {
   if (selected) return <CustomerDetailScreen customer={selected} onBack={() => setSelected(null)} />;
   if (!rows) return <ActivityIndicator style={s.loading} color={colors.primary} />;
 
+  // Soonest cut-off first when looking at connected customers; otherwise biggest debt first.
+  const expiry = (id: string) => conns[id]?.expiry ?? Infinity;
   const shown = rows
     .filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
     .filter((r) => !owesOnly || r.outstanding_debt > 0)
-    .sort((a, b) => b.outstanding_debt - a.outstanding_debt || a.name.localeCompare(b.name));
+    .filter((r) => connFilter === "all" || conns[r.id]?.state === connFilter)
+    .sort((a, b) =>
+      connFilter === "connected"
+        ? expiry(a.id) - expiry(b.id) || a.name.localeCompare(b.name)
+        : b.outstanding_debt - a.outstanding_debt || a.name.localeCompare(b.name)
+    );
 
   return (
     <View style={s.container}>
       <TextInput style={s.search} placeholder="Search customers" value={query} onChangeText={setQuery} />
       <View style={s.filters}>
+        <Chip label="All" selected={connFilter === "all"} onPress={() => setConnFilter("all")} />
+        <Chip label="Connected" selected={connFilter === "connected"} onPress={() => setConnFilter("connected")} />
+        <Chip label="Cut off" selected={connFilter === "cutoff"} onPress={() => setConnFilter("cutoff")} />
         <Chip label="Owes" selected={owesOnly} onPress={() => setOwesOnly(!owesOnly)} />
-        <Text style={s.count}>{shown.length} customers</Text>
       </View>
+      <Text style={s.count}>{shown.length} customers</Text>
       <FlatList
         data={shown}
         keyExtractor={(r) => r.id}
@@ -65,6 +79,9 @@ export default function CustomersScreen() {
                 <Text style={s.muted}>
                   {item.total_visits} visits - paid {formatPHP(item.lifetime_value)}
                 </Text>
+                <Text style={[s.status, conns[item.id]?.state === "connected" ? s.on : conns[item.id]?.state === "cutoff" ? s.off : s.muted]}>
+                  {cutoffText(conns[item.id])}
+                </Text>
               </View>
               {item.outstanding_debt > 0 && <Badge label={`Owes ${formatPHP(item.outstanding_debt)}`} />}
               <Icon name="chevron-forward" size={20} color={colors.muted} />
@@ -80,7 +97,7 @@ const s = StyleSheet.create({
   loading: { marginTop: space.xl },
   container: { flex: 1, padding: space.lg, gap: space.sm },
   search: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
-  filters: { flexDirection: "row", alignItems: "center", gap: space.md },
+  filters: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm },
   count: { color: colors.muted },
   card: { minHeight: TOUCH, flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md, borderRadius: radius.md, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, marginBottom: space.sm, ...shadow },
   pressed: { opacity: 0.8 },
@@ -89,4 +106,7 @@ const s = StyleSheet.create({
   main: { flex: 1 },
   name: { fontSize: type.title, fontWeight: "700", color: colors.text },
   muted: { fontSize: type.small, color: colors.muted },
+  status: { fontSize: type.small, fontWeight: "600" },
+  on: { color: colors.success },
+  off: { color: colors.warning },
 });

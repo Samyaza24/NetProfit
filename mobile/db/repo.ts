@@ -1,3 +1,4 @@
+import { Connection, connectionOf } from "../lib/connection";
 import { getDb } from "./schema";
 import { newUuid } from "../lib/uuid";
 
@@ -285,6 +286,17 @@ export async function listCustomerSummaries(): Promise<CustomerSummary[]> {
 export async function markTransactionPaid(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("UPDATE transactions SET status = 'Paid', synced = 0 WHERE id = ? AND status = 'Unpaid'", id);
+}
+
+// Connection state (connected / cut off) per customer, worked out from their purchased plans.
+export async function listConnections(): Promise<Record<string, Connection>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ customer_id: string; timestamp: string; duration_days: number }>(
+    "SELECT customer_id, timestamp, duration_days FROM transactions"
+  );
+  const plans: Record<string, { at: number; days: number }[]> = {};
+  for (const r of rows) (plans[r.customer_id] ??= []).push({ at: parseTs(r.timestamp).getTime(), days: r.duration_days });
+  return Object.fromEntries(Object.entries(plans).map(([id, list]) => [id, connectionOf(list)]));
 }
 
 export async function listCustomerTransactions(customerId: string): Promise<Transaction[]> {

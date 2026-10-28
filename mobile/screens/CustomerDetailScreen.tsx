@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { CustomerSummary, listCustomerTransactions, markTransactionPaid, parseTs, Transaction } from "../db/repo";
+import { connectionOf, cutoffText } from "../lib/connection";
 import { Badge, Button, Card, EmptyState } from "../ui/components";
 import { colors, formatPHP, space, type } from "../ui/theme";
 
@@ -36,12 +37,17 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
   // Totals come from the loaded rows so they update right after marking something paid.
   const paid = rows.filter((r) => r.status === "Paid").reduce((sum, r) => sum + r.amount_received, 0);
   const owes = rows.filter((r) => r.status === "Unpaid").reduce((sum, r) => sum + r.amount_received, 0);
+  const conn = connectionOf(rows.map((r) => ({ at: parseTs(r.timestamp).getTime(), days: r.duration_days })));
 
   return (
     <View style={s.container}>
       <Button title="Back to clients" icon="chevron-back" variant="secondary" onPress={onBack} />
       <Card>
         <Text style={s.name}>{customer.name}</Text>
+        <Text style={[s.line, s.status, conn.state === "connected" ? { color: colors.success } : conn.state === "cutoff" ? { color: colors.warning } : null]}>
+          Wi-Fi: {conn.state === "connected" ? "Connected" : conn.state === "cutoff" ? "Cut off" : "No plan"}
+        </Text>
+        <Text style={s.line}>{cutoffText(conn)}</Text>
         <Text style={s.line}>{rows.length} visits</Text>
         <Text style={s.line}>Total spent: {formatPHP(paid)}</Text>
         {owes > 0 && <Text style={s.debt}>Owes {formatPHP(owes)}</Text>}
@@ -78,6 +84,7 @@ const s = StyleSheet.create({
   container: { flex: 1, padding: space.lg, gap: space.md },
   name: { fontSize: type.big, fontWeight: "700", color: colors.text },
   line: { fontSize: type.body, color: colors.text },
+  status: { fontWeight: "700" },
   debt: { fontSize: type.body, fontWeight: "700", color: colors.danger },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   rowMain: { flex: 1 },
