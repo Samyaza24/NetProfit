@@ -294,9 +294,25 @@ export async function listConnections(): Promise<Record<string, Connection>> {
   const rows = await db.getAllAsync<{ customer_id: string; timestamp: string; duration_days: number }>(
     "SELECT customer_id, timestamp, duration_days FROM transactions"
   );
+  const customers = await db.getAllAsync<{ id: string; status: string; updated_at: string }>(
+    "SELECT id, status, updated_at FROM customers"
+  );
   const plans: Record<string, { at: number; days: number }[]> = {};
   for (const r of rows) (plans[r.customer_id] ??= []).push({ at: parseTs(r.timestamp).getTime(), days: r.duration_days });
-  return Object.fromEntries(Object.entries(plans).map(([id, list]) => [id, connectionOf(list)]));
+  return Object.fromEntries(
+    customers.map((c) => [c.id, connectionOf(plans[c.id] ?? [], undefined, c.status === "Disabled" ? parseTs(c.updated_at).getTime() : null)])
+  );
+}
+
+// Cuts a customer off by hand ("Disabled") or hands control back to their plan ("Active"); syncs like any edit.
+export async function setCustomerStatus(id: string, status: "Active" | "Disabled"): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE customers SET status = ?, updated_at = ?, synced = 0 WHERE id = ?", status, new Date().toISOString(), id);
+}
+
+export async function getCustomer(id: string): Promise<Customer | null> {
+  const db = await getDb();
+  return (await db.getFirstAsync<Customer>("SELECT * FROM customers WHERE id = ?", id)) ?? null;
 }
 
 export async function listCustomerTransactions(customerId: string): Promise<Transaction[]> {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
-import { CustomerSummary, listCustomerTransactions, markTransactionPaid, parseTs, Transaction } from "../db/repo";
+import { CustomerSummary, getCustomer, listCustomerTransactions, markTransactionPaid, parseTs, setCustomerStatus, Transaction } from "../db/repo";
 import { connectionOf, cutoffText } from "../lib/connection";
 import { Badge, Button, Card, EmptyState } from "../ui/components";
 import { colors, formatPHP, space, type } from "../ui/theme";
@@ -14,12 +14,38 @@ const tierName = (days: number) => (days === 30 ? "1 Month" : `${days} ${days ==
 
 export default function CustomerDetailScreen({ customer, onBack }: Props) {
   const [rows, setRows] = useState<Transaction[]>([]);
+  const [manualAt, setManualAt] = useState<number | null>(null);
 
-  const load = useCallback(() => listCustomerTransactions(customer.id).then(setRows), [customer.id]);
+  const load = useCallback(async () => {
+    setRows(await listCustomerTransactions(customer.id));
+    const c = await getCustomer(customer.id);
+    setManualAt(c?.status === "Disabled" ? parseTs(c.updated_at).getTime() : null);
+  }, [customer.id]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  function changeStatus(status: "Active" | "Disabled") {
+    const cut = status === "Disabled";
+    Alert.alert(
+      cut ? `Cut off ${customer.name}?` : `Reconnect ${customer.name}?`,
+      cut
+        ? "This marks them as cut off in NetProfit right now. You still need to disconnect them on your Wi-Fi router. Buying a new plan reconnects them automatically."
+        : "This undoes the manual cut-off, so their status follows their plan again. Remember to turn their Wi-Fi back on in your router.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: cut ? "Cut off now" : "Reconnect",
+          style: cut ? "destructive" : "default",
+          onPress: async () => {
+            await setCustomerStatus(customer.id, status);
+            load();
+          },
+        },
+      ]
+    );
+  }
 
   function confirmPaid(t: Transaction) {
     Alert.alert("Mark as paid?", `${tierName(t.duration_days)} - ${formatPHP(t.amount_received)}. This cannot be undone.`, [
@@ -37,7 +63,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
   // Totals come from the loaded rows so they update right after marking something paid.
   const paid = rows.filter((r) => r.status === "Paid").reduce((sum, r) => sum + r.amount_received, 0);
   const owes = rows.filter((r) => r.status === "Unpaid").reduce((sum, r) => sum + r.amount_received, 0);
-  const conn = connectionOf(rows.map((r) => ({ at: parseTs(r.timestamp).getTime(), days: r.duration_days })));
+  const conn = connectionOf(rows.map((r) => ({ at: parseTs(r.timestamp).getTime(), days: r.duration_days })), undefined, manualAt);
 
   return (
     <View style={s.container}>
@@ -52,6 +78,9 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
         <Text style={s.line}>Total spent: {formatPHP(paid)}</Text>
         {owes > 0 && <Text style={s.debt}>Owes {formatPHP(owes)}</Text>}
       </Card>
+      {conn.state === "connected" && <Button title="Cut off now" icon="close-circle-outline" variant="secondary" onPress={() => changeStatus("Disabled")} />}
+      {conn.manual && <Button title="Reconnect" icon="checkmark-circle-outline" onPress={() => changeStatus("Active")} />}
+      {conn.state === "cutoff" && !conn.manual && <Text style={s.muted}>The plan has ended. Buying a new plan reconnects them.</Text>}
       <FlatList
         data={rows}
         keyExtractor={(t) => t.id}
