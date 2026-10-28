@@ -22,7 +22,8 @@ async function initDb(): Promise<Db> {
           name TEXT NOT NULL,
           status TEXT NOT NULL,
           updated_at TEXT NOT NULL,
-          synced INTEGER NOT NULL DEFAULT 0
+          synced INTEGER NOT NULL DEFAULT 0,
+          rev INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS transactions (
           id TEXT PRIMARY KEY NOT NULL,
@@ -32,7 +33,8 @@ async function initDb(): Promise<Db> {
           duration_days INTEGER NOT NULL,
           status TEXT NOT NULL,
           timestamp TEXT NOT NULL,
-          synced INTEGER NOT NULL DEFAULT 0
+          synced INTEGER NOT NULL DEFAULT 0,
+          rev INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS expenses (
           id TEXT PRIMARY KEY NOT NULL,
@@ -47,6 +49,13 @@ async function initDb(): Promise<Db> {
           value TEXT
         );
       `);
+  // Phones created before `rev` existed get the column added once; safe to run on every start.
+  for (const table of ["customers", "transactions"]) {
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+    if (!cols.some((c) => c.name === "rev")) {
+      await db.execAsync(`ALTER TABLE ${table} ADD COLUMN rev INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
   return db;
 }
 

@@ -8,6 +8,7 @@ export interface Customer {
   status: string;
   updated_at: string;
   synced: number;
+  rev: number;
 }
 
 export interface Transaction {
@@ -19,6 +20,7 @@ export interface Transaction {
   status: "Paid" | "Unpaid";
   timestamp: string;
   synced: number;
+  rev: number;
 }
 
 export interface Expense {
@@ -78,6 +80,7 @@ export async function createLocalCustomer(name: string): Promise<Customer> {
     status: "Active",
     updated_at: new Date().toISOString(),
     synced: 0,
+    rev: 0,
   };
   await db.runAsync(
     "INSERT INTO customers (id, name, status, updated_at, synced) VALUES (?, ?, ?, ?, 0)",
@@ -160,14 +163,21 @@ export async function applyCustomerRemap(remap: Record<string, string>): Promise
   return missing;
 }
 
+// Clears the pending flag only for rows unchanged since they were read (same rev), so an edit made
+// while a sync was running stays pending and goes out on the next sync.
 export async function markSynced(
-  table: "customers" | "transactions" | "expenses",
-  ids: string[]
+  table: "customers" | "transactions",
+  rows: { id: string; rev: number }[]
 ): Promise<void> {
+  const db = await getDb();
+  for (const r of rows) await db.runAsync(`UPDATE ${table} SET synced = 1 WHERE id = ? AND rev = ?`, r.id, r.rev);
+}
+
+// Expenses never change after they are written, so there is nothing to race with.
+export async function markExpensesSynced(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const db = await getDb();
-  const placeholders = ids.map(() => "?").join(",");
-  await db.runAsync(`UPDATE ${table} SET synced = 1 WHERE id IN (${placeholders})`, ...ids);
+  await db.runAsync(`UPDATE expenses SET synced = 1 WHERE id IN (${ids.map(() => "?").join(",")})`, ...ids);
 }
 
 export async function upsertCustomer(customer: {
@@ -252,10 +262,14 @@ export async function upsertExpense(e: {
   );
 }
 
-export async function listRecentTransactions(limit = 50): Promise<Transaction[]> {
+export type TransactionWithName = Transaction & { customer_name: string | null };
+
+export async function listRecentTransactions(limit = 50): Promise<TransactionWithName[]> {
   const db = await getDb();
-  return db.getAllAsync<Transaction>(
-    "SELECT * FROM transactions ORDER BY timestamp DESC LIMIT ?",
+  return db.getAllAsync<TransactionWithName>(
+    `SELECT t.*, c.name AS customer_name
+     FROM transactions t LEFT JOIN customers c ON c.id = t.customer_id
+     ORDER BY t.timestamp DESC LIMIT ?`,
     limit
   );
 }
@@ -285,7 +299,7 @@ export async function listCustomerSummaries(): Promise<CustomerSummary[]> {
 // Marks an unpaid transaction as paid and queues it for the next sync.
 export async function markTransactionPaid(id: string): Promise<void> {
   const db = await getDb();
-  await db.runAsync("UPDATE transactions SET status = 'Paid', synced = 0 WHERE id = ? AND status = 'Unpaid'", id);
+  await db.runAsync("UPDATE transactions SET status = 'Paid', synced = 0, rev = rev + 1 WHERE id = ? AND status = 'Unpaid'", id);
 }
 
 // Connection state (connected / cut off) per customer, worked out from their purchased plans.
@@ -307,7 +321,7 @@ export async function listConnections(): Promise<Record<string, Connection>> {
 // Cuts a customer off by hand ("Disabled") or hands control back to their plan ("Active"); syncs like any edit.
 export async function setCustomerStatus(id: string, status: "Active" | "Disabled"): Promise<void> {
   const db = await getDb();
-  await db.runAsync("UPDATE customers SET status = ?, updated_at = ?, synced = 0 WHERE id = ?", status, new Date().toISOString(), id);
+  await db.runAsync("UPDATE customers SET status = ?, updated_at = ?, synced = 0, rev = rev + 1 WHERE id = ?", status, new Date().toISOString(), id);
 }
 
 export async function getCustomer(id: string): Promise<Customer | null> {

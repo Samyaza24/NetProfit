@@ -1,10 +1,12 @@
 import * as SecureStore from "expo-secure-store";
+import { fetchWithTimeout } from "../lib/http";
 import { getMeta, setMeta } from "../db/schema";
 import {
   applyCustomerRemap,
   getUnsyncedCustomers,
   getUnsyncedExpenses,
   getUnsyncedTransactions,
+  markExpensesSynced,
   markSynced,
   upsertCustomer,
   upsertExpense,
@@ -13,7 +15,12 @@ import {
 
 const TOKEN_KEY = "netprofit_device_token";
 
-export class AuthError extends Error {}
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthError";
+  }
+}
 
 export async function storeCredentials(token: string, serverUrl: string, deviceId: string) {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -38,7 +45,21 @@ export interface SyncResult {
   pulled: { customers: number; transactions: number; expenses: number };
 }
 
-export async function syncNow(): Promise<SyncResult> {
+// Only one sync runs at a time; a second caller gets the one already in progress.
+let inflight: Promise<SyncResult> | null = null;
+
+export const isSyncing = () => inflight !== null;
+
+export function syncNow(): Promise<SyncResult> {
+  if (!inflight) {
+    inflight = runSync().finally(() => {
+      inflight = null;
+    });
+  }
+  return inflight;
+}
+
+async function runSync(): Promise<SyncResult> {
   const serverUrl = await getMeta("server_url");
   if (!serverUrl) throw new AuthError("Not paired");
   const headers = await authHeaders();
@@ -72,7 +93,7 @@ export async function syncNow(): Promise<SyncResult> {
     })),
   };
 
-  const pushRes = await fetch(`${serverUrl}/sync`, {
+  const pushRes = await fetchWithTimeout(`${serverUrl}/sync`, {
     method: "POST",
     headers,
     body: JSON.stringify(pushBody),
@@ -84,22 +105,13 @@ export async function syncNow(): Promise<SyncResult> {
   const pushed: { customer_remap?: Record<string, string> } = await pushRes.json();
   const needFullPull = await applyCustomerRemap(pushed.customer_remap ?? {});
 
-  await markSynced(
-    "customers",
-    customers.map((c) => c.id)
-  );
-  await markSynced(
-    "transactions",
-    transactions.map((t) => t.id)
-  );
-  await markSynced(
-    "expenses",
-    expenses.map((e) => e.id)
-  );
+  await markSynced("customers", customers);
+  await markSynced("transactions", transactions);
+  await markExpensesSynced(expenses.map((e) => e.id));
 
   const since = needFullPull ? null : await getMeta("last_synced_at");
   const query = since ? `?since=${encodeURIComponent(since)}` : "";
-  const pullRes = await fetch(`${serverUrl}/sync${query}`, { headers });
+  const pullRes = await fetchWithTimeout(`${serverUrl}/sync${query}`, { headers });
   if (pullRes.status === 401) throw new AuthError("Device token invalid or revoked");
   if (!pullRes.ok) throw new Error(`Pull failed: ${pullRes.status}`);
 
