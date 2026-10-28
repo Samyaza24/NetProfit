@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Sidebar from "@/components/Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,14 +15,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <nav style={{ display: "flex", gap: 16, padding: 16, borderBottom: "1px solid var(--border)" }}>
-          <Link href="/">Dashboard</Link>
-          <Link href="/transactions">Transactions</Link>
-          <Link href="/expenses">Expenses</Link>
-          <Link href="/devices">Devices</Link>
-          <Link href="/pair">Pair Device</Link>
-        </nav>
-        <main style={{ padding: 16 }}>{children}</main>
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        <div className="shell">
+          <Sidebar />
+          <main id="main" className="content">
+            <div className="content-inner">{children}</div>
+          </main>
+        </div>
       </body>
     </html>
   );
