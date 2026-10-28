@@ -2,26 +2,29 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { CustomerSummary, listConnections, listCustomerSummaries } from "../db/repo";
 import { Connection, cutoffText } from "../lib/connection";
-import { Badge, Chip, EmptyState } from "../ui/components";
+import { Badge, Chip, EmptyState, ErrorState } from "../ui/components";
+import { useLoad } from "../ui/useLoad";
 import FadeIn from "../ui/FadeIn";
 import Icon from "../ui/Icon";
 import { colors, formatPHP, radius, shadow, space, TOUCH, type } from "../ui/theme";
 import CustomerDetailScreen from "./CustomerDetailScreen";
 
-export default function CustomersScreen() {
-  const [rows, setRows] = useState<CustomerSummary[] | null>(null);
-  const [conns, setConns] = useState<Record<string, Connection>>({});
+const load = async () => {
+  const [rows, conns] = await Promise.all([listCustomerSummaries(), listConnections()]);
+  return { rows, conns };
+};
+
+export default function CustomersScreen({ active = true }: { active?: boolean }) {
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
   const [connFilter, setConnFilter] = useState<"all" | "connected" | "cutoff">("all");
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
 
-  // Reload on open and every time the detail view closes, so a cut-off made there shows up in the list.
-  useEffect(() => {
-    if (selected) return;
-    listCustomerSummaries().then(setRows);
-    listConnections().then(setConns);
-  }, [selected]);
+  // Reloads when the tab is shown again and every time the detail view closes, so a cut-off made
+  // there shows up in the list and in the filters.
+  const { data, error, reload } = useLoad(load, active && !selected);
+  const rows = data?.rows ?? null;
+  const conns: Record<string, Connection> = data?.conns ?? {};
 
   // Android back closes the detail view instead of leaving the screen.
   useEffect(() => {
@@ -34,6 +37,7 @@ export default function CustomersScreen() {
   }, [selected]);
 
   if (selected) return <CustomerDetailScreen customer={selected} onBack={() => setSelected(null)} />;
+  if (error && !rows) return <ErrorState message={error} onRetry={reload} />;
   if (!rows) return <ActivityIndicator style={s.loading} color={colors.primary} />;
 
   // Soonest cut-off first when looking at connected customers; otherwise biggest debt first.

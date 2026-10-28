@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
-import { DayTotal, getDailyReceived, getTotals, Totals } from "../db/repo";
-import { Card } from "../ui/components";
+import { getDailyReceived, getTotals } from "../db/repo";
+import { Card, ErrorState } from "../ui/components";
 import CountUp from "../ui/CountUp";
 import { colors, formatPHP, radius, space, type } from "../ui/theme";
+import { useLoad } from "../ui/useLoad";
 import { useReducedMotion } from "../ui/useReducedMotion";
 
 function startOfToday(): string {
@@ -40,16 +41,16 @@ function GrowBar({ height, style }: { height: number; style: StyleProp<ViewStyle
   return <Animated.View style={[style, { height, transformOrigin: "bottom", transform: [{ scaleY: v }] }]} />;
 }
 
-export default function AnalyticsScreen() {
-  const [totals, setTotals] = useState<Totals[] | null>(null);
-  const [daily, setDaily] = useState<DayTotal[]>([]);
+const load = async () => {
+  const totals = await Promise.all(PERIODS.map(([, since]) => getTotals(since())));
+  return { totals, daily: await getDailyReceived(7) };
+};
 
-  useEffect(() => {
-    Promise.all(PERIODS.map(([, since]) => getTotals(since()))).then(setTotals);
-    getDailyReceived(7).then(setDaily);
-  }, []);
-
-  if (!totals) return <ActivityIndicator style={s.loading} color={colors.primary} />;
+export default function AnalyticsScreen({ active = true }: { active?: boolean }) {
+  const { data, error, reload } = useLoad(load, active);
+  if (error && !data) return <ErrorState message={error} onRetry={reload} />;
+  if (!data) return <ActivityIndicator style={s.loading} color={colors.primary} />;
+  const { totals, daily } = data;
 
   const max = Math.max(1, ...daily.map((d) => d.amount));
   const month = totals[1];

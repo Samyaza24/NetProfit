@@ -1,30 +1,36 @@
-import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { useCallback } from "react";
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { CustomerSummary, getCustomer, listCustomerTransactions, markTransactionPaid, parseTs, setCustomerStatus, Transaction } from "../db/repo";
 import { connectionOf, cutoffText } from "../lib/connection";
-import { Badge, Button, Card, EmptyState } from "../ui/components";
+import { friendlyError } from "../lib/errors";
+import { tierName } from "../lib/format";
+import { Badge, Button, Card, EmptyState, ErrorState } from "../ui/components";
 import { colors, formatPHP, space, type } from "../ui/theme";
+import { useLoad } from "../ui/useLoad";
 
 interface Props {
   customer: CustomerSummary;
   onBack: () => void;
 }
 
-const tierName = (days: number) => (days === 30 ? "1 Month" : `${days} ${days === 1 ? "Day" : "Days"}`);
-
 export default function CustomerDetailScreen({ customer, onBack }: Props) {
-  const [rows, setRows] = useState<Transaction[]>([]);
-  const [manualAt, setManualAt] = useState<number | null>(null);
-
-  const load = useCallback(async () => {
-    setRows(await listCustomerTransactions(customer.id));
-    const c = await getCustomer(customer.id);
-    setManualAt(c?.status === "Disabled" ? parseTs(c.updated_at).getTime() : null);
+  const fetchData = useCallback(async () => {
+    const [rows, c] = await Promise.all([listCustomerTransactions(customer.id), getCustomer(customer.id)]);
+    return { rows, manualAt: c?.status === "Disabled" ? parseTs(c.updated_at).getTime() : null };
   }, [customer.id]);
+  const { data, error, reload: load } = useLoad(fetchData);
+  const rows: Transaction[] = data?.rows ?? [];
+  const manualAt = data?.manualAt ?? null;
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Runs a change, then reloads; a failure tells the operator instead of failing silently.
+  async function run(change: () => Promise<void>) {
+    try {
+      await change();
+      load();
+    } catch (e) {
+      Alert.alert("Could not save the change", friendlyError(e).message);
+    }
+  }
 
   function changeStatus(status: "Active" | "Disabled") {
     const cut = status === "Disabled";
@@ -38,10 +44,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
         {
           text: cut ? "Cut off now" : "Reconnect",
           style: cut ? "destructive" : "default",
-          onPress: async () => {
-            await setCustomerStatus(customer.id, status);
-            load();
-          },
+          onPress: () => run(() => setCustomerStatus(customer.id, status)),
         },
       ]
     );
@@ -52,10 +55,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
       { text: "Cancel", style: "cancel" },
       {
         text: "Mark paid",
-        onPress: async () => {
-          await markTransactionPaid(t.id);
-          load();
-        },
+        onPress: () => run(() => markTransactionPaid(t.id)),
       },
     ]);
   }
@@ -64,6 +64,15 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
   const paid = rows.filter((r) => r.status === "Paid").reduce((sum, r) => sum + r.amount_received, 0);
   const owes = rows.filter((r) => r.status === "Unpaid").reduce((sum, r) => sum + r.amount_received, 0);
   const conn = connectionOf(rows.map((r) => ({ at: parseTs(r.timestamp).getTime(), days: r.duration_days })), undefined, manualAt);
+
+  if (!data) {
+    return (
+      <View style={s.container}>
+        <Button title="Back to clients" icon="chevron-back" variant="secondary" onPress={onBack} />
+        {error ? <ErrorState message={error} onRetry={load} /> : <ActivityIndicator color={colors.primary} />}
+      </View>
+    );
+  }
 
   return (
     <View style={s.container}>

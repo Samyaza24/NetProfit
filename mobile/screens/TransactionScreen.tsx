@@ -1,5 +1,6 @@
 import { ElementRef, useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { friendlyError } from "../lib/errors";
 import {
   createLocalCustomer,
   createTransaction,
@@ -30,6 +31,8 @@ export default function TransactionScreen() {
   const [status, setStatus] = useState<Status>("Paid");
   const [confirmDup, setConfirmDup] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
   const [toast, showToast] = useToast();
   const input = useRef<ElementRef<typeof TextInput>>(null);
 
@@ -43,6 +46,7 @@ export default function TransactionScreen() {
   useEffect(() => {
     const q = name.trim();
     setConfirmDup(false);
+    setError(null);
     if (!q) {
       setSuggestions([]);
       setExisting(null);
@@ -53,12 +57,15 @@ export default function TransactionScreen() {
   }, [name, tier, status]);
 
   async function submit() {
+    if (busy.current) return; // a ref, so a fast double tap cannot save twice or create a duplicate client
     const clean = name.trim();
     if (!clean) {
-      Alert.alert("Enter a customer name");
+      setError("Type the client's name first.");
       return;
     }
+    busy.current = true;
     setSaving(true);
+    setError(null);
     try {
       let customer = existing ?? (await findCustomerByName(clean));
       if (customer && !confirmDup && (await hasRecentTransaction(customer.id, tier.days))) {
@@ -72,8 +79,9 @@ export default function TransactionScreen() {
       setName("");
       input.current?.focus();
     } catch (e) {
-      Alert.alert("Could not save", String(e));
+      setError(friendlyError(e).message);
     } finally {
+      busy.current = false;
       setSaving(false);
     }
   }
@@ -127,7 +135,14 @@ export default function TransactionScreen() {
 
       {toast}
       {confirmDup && (
-        <Text style={s.warn}>{name.trim()} already has this tier in the last 2 minutes. Save again?</Text>
+        <Text style={s.warn} accessibilityRole="alert">
+          {name.trim()} already has this tier in the last 2 minutes. Save again?
+        </Text>
+      )}
+      {error && (
+        <Text style={s.error} accessibilityRole="alert">
+          {error}
+        </Text>
       )}
       <Button
         icon="checkmark"
@@ -146,4 +161,5 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   tierCell: { width: "48%" },
   warn: { color: colors.warning, fontWeight: "600" },
+  error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
 });

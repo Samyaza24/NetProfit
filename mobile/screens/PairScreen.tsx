@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { friendlyError } from "../lib/errors";
+import { fetchWithTimeout } from "../lib/http";
 import { storeCredentials } from "../sync/syncClient";
 import { Button } from "../ui/components";
 import Logo from "../ui/Logo";
@@ -15,15 +17,17 @@ export default function PairScreen({ onPaired }: Props) {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scanned = useRef(false);
 
   async function handleScan({ data }: { data: string }) {
-    if (busy) return;
+    if (scanned.current) return; // the camera reports the same code many times a second
+    scanned.current = true;
     setBusy(true);
     setScanning(false);
     setError(null);
     try {
       const payload = JSON.parse(data) as { pairing_code: string; server_url: string };
-      const res = await fetch(`${payload.server_url}/devices/pair`, {
+      const res = await fetchWithTimeout(`${payload.server_url}/devices/pair`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pairing_code: payload.pairing_code, label: "Field Phone" }),
@@ -33,8 +37,9 @@ export default function PairScreen({ onPaired }: Props) {
       await storeCredentials(result.token, result.server_url, result.device_id);
       onPaired();
     } catch (e) {
-      setError(`${String(e)}. Generate a new QR on the PC and try again.`);
+      setError(friendlyError(e).message);
     } finally {
+      scanned.current = false;
       setBusy(false);
     }
   }

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text } from "react-native";
 import { countUnsynced, parseTs } from "../db/repo";
 import { getMeta } from "../db/schema";
-import { AuthError, SyncResult, syncNow } from "../sync/syncClient";
+import { friendlyError } from "../lib/errors";
+import { AuthError, isSyncing, SyncResult, syncNow } from "../sync/syncClient";
 import { Button, Card } from "../ui/components";
 import Icon from "../ui/Icon";
 import { colors, space, type } from "../ui/theme";
@@ -11,7 +12,7 @@ interface Props {
   onNeedsRePair: () => void;
 }
 
-type Outcome = { kind: "ok"; result: SyncResult } | { kind: "auth" } | { kind: "error"; message: string };
+type Outcome = { kind: "ok"; result: SyncResult } | { kind: "auth" } | { kind: "error"; message: string; details: string };
 
 export default function SyncScreen({ onNeedsRePair }: Props) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
@@ -24,22 +25,25 @@ export default function SyncScreen({ onNeedsRePair }: Props) {
     setPending(await countUnsynced());
   }
 
-  useEffect(() => {
-    refresh();
-  }, []);
-
+  // syncNow() returns the sync already in progress, so this never starts a second one.
   async function handleSync() {
     setBusy(true);
     setOutcome(null);
     try {
       setOutcome({ kind: "ok", result: await syncNow() });
     } catch (e) {
-      setOutcome(e instanceof AuthError ? { kind: "auth" } : { kind: "error", message: String(e) });
+      setOutcome(e instanceof AuthError ? { kind: "auth" } : { kind: "error", ...friendlyError(e) });
     } finally {
       setBusy(false);
       refresh();
     }
   }
+
+  useEffect(() => {
+    refresh();
+    if (isSyncing()) handleSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <ScrollView contentContainerStyle={s.container}>
@@ -81,9 +85,11 @@ export default function SyncScreen({ onNeedsRePair }: Props) {
 
       {outcome?.kind === "error" && (
         <Card>
-          <Text style={s.err}>Could not sync</Text>
-          <Text style={s.line}>Check that the PC is on and this phone is on the same Wi-Fi.</Text>
-          <Text style={s.muted}>{outcome.message}</Text>
+          <Text style={s.err} accessibilityRole="alert">
+            Could not sync
+          </Text>
+          <Text style={s.line}>{outcome.message}</Text>
+          <Text style={s.muted}>Details: {outcome.details}</Text>
           <Button title="Try again" variant="secondary" onPress={handleSync} />
         </Card>
       )}

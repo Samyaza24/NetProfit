@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Keyboard, Platform, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { friendlyError } from "./lib/errors";
+import { ErrorState } from "./ui/components";
+import ErrorBoundary from "./ui/ErrorBoundary";
 import PairScreen from "./screens/PairScreen";
 import RecordScreen from "./screens/RecordScreen";
 import CustomersScreen from "./screens/CustomersScreen";
@@ -22,13 +25,25 @@ const TABS: [Screen, string, string][] = [
 ];
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppRoot />
+    </ErrorBoundary>
+  );
+}
+
+function AppRoot() {
   const [paired, setPaired] = useState<boolean | null>(null);
   const [screen, setScreen] = useState<Screen>("record");
   const [keyboardUp, setKeyboardUp] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
-  useEffect(() => {
-    isPaired().then(setPaired);
+  const start = useCallback(() => {
+    setStartError(null);
+    isPaired().then(setPaired, (e) => setStartError(friendlyError(e).message));
   }, []);
+
+  useEffect(start, [start]);
 
   // Hide the tab bar while typing so it does not ride above the keyboard.
   useEffect(() => {
@@ -39,6 +54,14 @@ export default function App() {
       hide.remove();
     };
   }, []);
+
+  if (startError) {
+    return (
+      <View style={styles.root}>
+        <ErrorState message={startError} onRetry={start} />
+      </View>
+    );
+  }
 
   if (paired === null) return <View style={styles.root} />;
 

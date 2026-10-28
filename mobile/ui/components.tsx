@@ -120,6 +120,17 @@ export function Badge({ label, color = colors.danger }: { label: string; color?:
   );
 }
 
+// Shown instead of a screen's content when loading failed; always offers a way to try again.
+export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={s.emptyWrap} accessibilityRole="alert">
+      <Icon name="alert-circle-outline" size={40} color={colors.danger} />
+      <Text style={s.empty}>{message}</Text>
+      <Button title="Try again" variant="secondary" icon="refresh" onPress={onRetry} />
+    </View>
+  );
+}
+
 export function EmptyState({ text, icon = "file-tray-outline" }: { text: string; icon?: IconName }) {
   return (
     <View style={s.emptyWrap}>
