@@ -68,5 +68,5 @@ export default function PairScreen({ onPaired }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 16, gap: 12 },
-  camera: { width: "100%", height: 400 },
+  camera: { width: "100%", flex: 1 },
 });
