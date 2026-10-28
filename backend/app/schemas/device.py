@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DeviceRead(BaseModel):
@@ -21,7 +21,7 @@ class PairingCodeResponse(BaseModel):
 
 class PairExchangeRequest(BaseModel):
     pairing_code: str
-    label: str
+    label: str = Field(min_length=1, max_length=255)
 
 
 class PairExchangeResponse(BaseModel):

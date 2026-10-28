@@ -1,13 +1,13 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import UUIDStr
 
 
 class CustomerBase(BaseModel):
-    name: str
-    status: str = "Active"
+    name: str = Field(min_length=1, max_length=255)
+    status: str = Field(default="Active", max_length=32)
 
 
 class CustomerCreate(CustomerBase):
@@ -17,8 +17,8 @@ class CustomerCreate(CustomerBase):
 
 
 class CustomerUpdate(BaseModel):
-    name: str | None = None
-    status: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    status: str | None = Field(default=None, max_length=32)
 
 
 class CustomerRead(CustomerBase):
