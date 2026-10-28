@@ -723,8 +723,19 @@ dialog h2 {
   font-size: 18px;
   margin-bottom: 8px;
 }
-dialog p {
+dialog p,
+.dialog-body {
   color: var(--muted);
+}
+.dialog-body {
+  display: grid;
+  gap: 12px;
+}
+.danger-zone {
+  border-color: var(--danger);
+}
+.danger-zone h2 {
+  color: var(--danger);
 }
 .dialog-actions {
   display: flex;

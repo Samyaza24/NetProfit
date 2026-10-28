@@ -7,13 +7,15 @@ interface Props {
   title: string;
   confirmLabel: string;
   tone?: "danger" | "primary";
+  // Keeps the confirm button off until the operator has done what the dialog asks (for example typed a word).
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   children: ReactNode;
 }
 
 // Native <dialog> gives focus trapping and Escape handling for free.
-export default function ConfirmDialog({ open, title, confirmLabel, tone = "danger", onConfirm, onCancel, children }: Props) {
+export default function ConfirmDialog({ open, title, confirmLabel, tone = "danger", confirmDisabled, onConfirm, onCancel, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -33,12 +35,12 @@ export default function ConfirmDialog({ open, title, confirmLabel, tone = "dange
       }}
     >
       <h2 id="confirm-title">{title}</h2>
-      <p>{children}</p>
+      <div className="dialog-body">{children}</div>
       <div className="dialog-actions">
         <button className="btn secondary" onClick={onCancel}>
           Cancel
         </button>
-        <button className={tone === "danger" ? "btn danger" : "btn"} onClick={onConfirm}>
+        <button className={tone === "danger" ? "btn danger" : "btn"} onClick={onConfirm} disabled={confirmDisabled}>
           {confirmLabel}
         </button>
       </div>

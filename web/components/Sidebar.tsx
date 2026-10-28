@@ -10,6 +10,7 @@ const LINKS: [string, string, IconName][] = [
   ["/expenses", "Expenses", "wallet"],
   ["/devices", "Devices", "phone"],
   ["/pair", "Pair a phone", "qr"],
+  ["/settings", "Settings", "settings"],
 ];
 
 export default function Sidebar() {

@@ -10,6 +10,8 @@ const PATHS = {
   alert: "M12 3l10 18H2zM12 10v5M12 18h.01",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   inbox: "M3 13l3-9h12l3 9v7H3zM3 13h5l1 3h6l1-3h5",
+  settings: "M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1M15 5v4M9 10v4M17 15v4",
+  trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5",
   back: "M15 6l-6 6 6 6",
   chevron: "M9 6l6 6-6 6",
 } as const;
