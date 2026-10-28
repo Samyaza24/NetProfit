@@ -52,7 +52,6 @@ export default function ExpenseScreen() {
   return (
     <View style={s.root}>
     <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      <Text style={s.label}>Description</Text>
       <TextInput
         style={s.input}
         value={description}
@@ -65,20 +64,19 @@ export default function ExpenseScreen() {
         accessibilityLabel="Expense description"
       />
       {recent.length > 0 && (
-        <View style={s.row}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.chips}>
           {recent.map((d) => (
             <Chip key={d} label={d} selected={description === d} onPress={() => setDescription(d)} />
           ))}
-        </View>
+        </ScrollView>
       )}
-      <Text style={s.label}>Amount (PHP)</Text>
       <TextInput
         ref={amountInput}
         style={s.input}
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        placeholder="200"
+        placeholder="Amount (PHP)"
         returnKeyType="done"
         onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Expense amount"
@@ -97,9 +95,8 @@ export default function ExpenseScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  container: { padding: space.lg, paddingBottom: space.xl * 3, gap: space.md },
-  label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
+  container: { padding: space.md, gap: space.sm },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  chips: { flexDirection: "row", gap: space.sm },
   error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
 });

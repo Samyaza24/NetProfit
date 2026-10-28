@@ -26,15 +26,15 @@ function ToastView({ message, ms }: { message: string; ms: number }) {
   return (
     <Animated.View
       accessibilityLiveRegion="polite"
-      style={[s.toast, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}
+      style={[s.toast, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }] }]}
     >
       <Text style={s.text}>{message}</Text>
     </Animated.View>
   );
 }
 
-// Returns a node to render inside a flex:1 container (it floats over the bottom edge, so it never pushes
-// other content around) and a function that shows a message briefly.
+// Returns a node to render inside a flex:1 container (it floats over the top edge, so it never pushes
+// other content around or covers the Save button) and a function that shows a message briefly.
 export function useToast(ms = 2500) {
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -56,6 +56,6 @@ export function useToast(ms = 2500) {
 }
 
 const s = StyleSheet.create({
-  toast: { position: "absolute", left: space.lg, right: space.lg, bottom: space.lg, backgroundColor: colors.success, borderRadius: radius.md, padding: space.md },
+  toast: { position: "absolute", left: space.lg, right: space.lg, top: space.sm, backgroundColor: colors.success, borderRadius: radius.md, padding: space.md },
   text: { color: colors.primaryText, fontSize: type.body, fontWeight: "600", textAlign: "center" },
 });

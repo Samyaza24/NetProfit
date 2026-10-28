@@ -23,6 +23,8 @@ export default function RecordScreen({ prefill }: { prefill?: Prefill | null }) 
       <TodayStrip />
       <View style={s.switch}>
         <Segmented
+          compact
+          label="Record type"
           options={[
             ["sale", "Sale"],
             ["expense", "Expense"],
@@ -43,7 +45,7 @@ export default function RecordScreen({ prefill }: { prefill?: Prefill | null }) 
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  switch: { paddingHorizontal: space.lg, paddingTop: space.md },
+  switch: { paddingHorizontal: space.md, paddingTop: space.sm },
   form: { flex: 1 },
   hidden: { display: "none" },
 });

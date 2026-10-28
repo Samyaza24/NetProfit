@@ -75,17 +75,28 @@ interface ChipProps {
   onPress: () => void;
   // radio: one of several choices; checkbox: an on/off filter; button: a one-shot suggestion.
   role?: "radio" | "checkbox" | "button";
+  // A second, smaller line under the label (for example the price); makes the chip narrow enough for a row of four.
+  sub?: string;
 }
 
-export function Chip({ label, selected, onPress, role = "button" }: ChipProps) {
+export function Chip({ label, selected, onPress, role = "button", sub }: ChipProps) {
+  const on = selected ? { color: colors.primaryText } : null;
   return (
     <ScalePressable
       accessibilityRole={role}
+      accessibilityLabel={sub ? `${label}, ${sub}` : label}
       accessibilityState={role === "button" ? { selected } : { checked: selected }}
       onPress={onPress}
-      contentStyle={[s.chip, selected && s.chipSelected]}
+      contentStyle={[s.chip, sub ? s.chipDense : null, selected && s.chipSelected]}
     >
-      <Text style={[s.chipText, selected && { color: colors.primaryText }]}>{label}</Text>
+      <Text style={[s.chipText, on]} numberOfLines={1}>
+        {label}
+      </Text>
+      {sub ? (
+        <Text style={[s.chipSub, on]} numberOfLines={1}>
+          {sub}
+        </Text>
+      ) : null}
     </ScalePressable>
   );
 }
@@ -94,18 +105,22 @@ interface SegmentedProps<T extends string> {
   options: [T, string][];
   value: T;
   onChange: (v: T) => void;
+  // 44dp tall instead of 48dp, for dense forms where the full height would force scrolling.
+  compact?: boolean;
+  // Read out by screen readers when the group has no visible heading.
+  label?: string;
 }
 
-export function Segmented<T extends string>({ options, value, onChange }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ options, value, onChange, compact, label }: SegmentedProps<T>) {
   return (
-    <View style={s.segmented} accessibilityRole="radiogroup">
+    <View style={s.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {options.map(([key, label]) => (
         <Pressable
           key={key}
           accessibilityRole="radio"
           accessibilityState={{ checked: key === value }}
           onPress={() => onChange(key)}
-          style={[s.segment, key === value && s.segmentActive]}
+          style={[s.segment, compact && s.segmentCompact, key === value && s.segmentActive]}
         >
           <Text style={[s.chipText, key === value && { color: colors.primaryText }]}>{label}</Text>
         </Pressable>
@@ -150,10 +165,13 @@ const s = StyleSheet.create({
   disabled: { opacity: 0.5 },
   card: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, gap: space.xs, ...shadow },
   chip: { minHeight: TOUCH, minWidth: TOUCH, paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  chipDense: { paddingHorizontal: space.xs, minWidth: 0 },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: type.body, fontWeight: "600", color: colors.text },
+  chipSub: { fontSize: type.small, color: colors.muted },
   segmented: { flexDirection: "row", backgroundColor: colors.surface, borderRadius: radius.md, padding: space.xs },
   segment: { flex: 1, minHeight: TOUCH, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  segmentCompact: { minHeight: 44 },
   segmentActive: { backgroundColor: colors.primary },
   badge: { alignSelf: "flex-start", paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.sm },
   badgeText: { color: colors.primaryText, fontSize: type.small, fontWeight: "700" },

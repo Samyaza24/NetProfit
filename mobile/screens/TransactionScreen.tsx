@@ -137,7 +137,6 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
   return (
     <View style={s.root}>
     <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      <Text style={s.label}>Customer</Text>
       <TextInput
         ref={input}
         style={s.input}
@@ -151,41 +150,39 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Customer name"
       />
+      {/* Suggestions scroll sideways so they never add a second row of height to the form. */}
       {name.trim() === "" && recent.length > 0 && (
-        <>
-          <Text style={s.label}>Recent</Text>
-          <View style={s.row}>
-            {recent.map((r) => (
-              <Chip
-                key={r.name}
-                label={r.name}
-                selected={false}
-                onPress={() => {
-                  setName(r.name);
-                  const plan = TIERS.find((t) => t.days === r.last_days);
-                  if (plan) setTier(plan);
-                }}
-              />
-            ))}
-          </View>
-        </>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.chips}>
+          {recent.map((r) => (
+            <Chip
+              key={r.name}
+              label={r.name}
+              selected={false}
+              onPress={() => {
+                setName(r.name);
+                const plan = TIERS.find((t) => t.days === r.last_days);
+                if (plan) setTier(plan);
+              }}
+            />
+          ))}
+        </ScrollView>
       )}
       {isNew && <Badge label="New client" color={colors.warning} />}
       {others.length > 0 && name.trim() !== "" && (
-        <View style={s.row}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.chips}>
           {others.map((c) => (
             <Chip key={c.id} label={c.name} selected={false} onPress={() => setName(c.name)} />
           ))}
-        </View>
+        </ScrollView>
       )}
 
-      <Text style={s.label}>Plan</Text>
-      <View style={s.row}>
+      <View style={s.tiers} accessibilityRole="radiogroup" accessibilityLabel="Plan">
         {TIERS.map((t) => (
           <View key={t.label} style={s.tierCell}>
             <Chip
               role="radio"
-              label={`${t.label} - ${t.amount}`}
+              label={t.label}
+              sub={`${t.amount} PHP`}
               selected={tier.days === t.days}
               onPress={() => setTier(t)}
             />
@@ -193,8 +190,9 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         ))}
       </View>
 
-      <Text style={s.label}>Payment</Text>
       <Segmented
+        compact
+        label="Payment"
         options={[
           ["Paid", "Paid"],
           ["Unpaid", "Unpaid"],
@@ -227,11 +225,11 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  container: { padding: space.lg, paddingBottom: space.xl * 3, gap: space.md },
-  label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
+  container: { padding: space.md, gap: space.sm },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  tierCell: { width: "48%" },
+  chips: { flexDirection: "row", gap: space.sm },
+  tiers: { flexDirection: "row", gap: space.xs },
+  tierCell: { flex: 1 },
   warn: { color: colors.warning, fontWeight: "600" },
   error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
 });
