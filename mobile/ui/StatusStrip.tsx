@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { countUnsynced } from "../db/repo";
 import Icon from "./Icon";
 import Logo from "./Logo";
-import { colors, space, type } from "./theme";
+import { colors, space, TOUCH, type } from "./theme";
 import { useReducedMotion } from "./useReducedMotion";
 
 // Brand plus always-visible sync state; polls the local count since writes happen on many screens.
@@ -58,6 +58,6 @@ export default function StatusStrip({ onPress }: { onPress: () => void }) {
 
 const s = StyleSheet.create({
   strip: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.lg, paddingVertical: space.sm, backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
-  status: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: space.sm, paddingLeft: space.md },
+  status: { minHeight: TOUCH, flexDirection: "row", alignItems: "center", gap: space.sm, paddingLeft: space.md },
   text: { fontSize: type.small, fontWeight: "600" },
 });

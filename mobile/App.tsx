@@ -14,6 +14,7 @@ import FadeIn from "./ui/FadeIn";
 import StatusStrip from "./ui/StatusStrip";
 import TabBar from "./ui/TabBar";
 import { colors } from "./ui/theme";
+import { ReducedMotionProvider } from "./ui/useReducedMotion";
 import { isPaired } from "./sync/syncClient";
 
 type Screen = "record" | "customers" | "analytics" | "sync";
@@ -28,9 +29,11 @@ const TABS: [Screen, string, string][] = [
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
-        <AppRoot />
-      </ErrorBoundary>
+      <ReducedMotionProvider>
+        <ErrorBoundary>
+          <AppRoot />
+        </ErrorBoundary>
+      </ReducedMotionProvider>
     </SafeAreaProvider>
   );
 }

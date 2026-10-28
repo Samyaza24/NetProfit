@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { friendlyError } from "../lib/errors";
 
 interface State<T> {
@@ -7,24 +8,48 @@ interface State<T> {
   loading: boolean;
 }
 
-// Loads on mount and whenever `active` turns true again or reload() is called. Old data stays visible
-// while refreshing. `load` must be stable (wrap it in useCallback).
-export function useLoad<T>(load: () => Promise<T>, active = true) {
+// Loads on mount, whenever `active` turns true again, when the app returns to the foreground, every
+// `pollMs` if given, and when reload() is called (for example by pull-to-refresh). Old data stays
+// visible while refreshing. `load` must be stable (module-level or wrapped in useCallback).
+export function useLoad<T>(load: () => Promise<T>, active = true, pollMs = 0) {
   const [state, setState] = useState<State<T>>({ data: null, error: null, loading: true });
+  const [refreshing, setRefreshing] = useState(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!active) return;
     let live = true;
     load().then(
-      (data) => live && setState({ data, error: null, loading: false }),
-      (e) => live && setState((s) => ({ ...s, error: friendlyError(e).message, loading: false }))
+      (data) => {
+        if (!live) return;
+        setState({ data, error: null, loading: false });
+        setRefreshing(false);
+      },
+      (e) => {
+        if (!live) return;
+        setState((s) => ({ ...s, error: friendlyError(e).message, loading: false }));
+        setRefreshing(false);
+      }
     );
     return () => {
       live = false;
     };
   }, [load, active, tick]);
 
-  const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { ...state, reload };
+  useEffect(() => {
+    if (!active) return;
+    const sub = AppState.addEventListener("change", (s) => s === "active" && setTick((t) => t + 1));
+    const timer = pollMs > 0 ? setInterval(() => setTick((t) => t + 1), pollMs) : undefined;
+    return () => {
+      sub.remove();
+      if (timer) clearInterval(timer);
+    };
+  }, [active, pollMs]);
+
+  const reload = useCallback(() => {
+    setRefreshing(true);
+    setTick((t) => t + 1);
+  }, []);
+
+  return { ...state, refreshing, reload };
 }

@@ -6,16 +6,19 @@ export const colors = {
   bg: "#ffffff",
   surface: "#f4f7fa",
   border: "#d5dbe1",
+  // Outline of text fields: dark enough (3:1 on white) to find the field without relying on its label.
+  inputBorder: "#8a95a1",
   text: "#14202b",
   muted: "#5b6875",
   success: "#1b7f3b",
-  warning: "#b26a00",
+  // 5.4:1 on white; also used behind white text on badges.
+  warning: "#9a5b00",
   danger: "#b00020",
 };
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
 export const radius = { sm: 8, md: 12 };
-export const type = { body: 16, small: 13, title: 18, big: 24 };
+export const type = { tiny: 12, body: 16, small: 13, title: 18, big: 24, hero: 34 };
 
 // Soft card shadow; elevation covers Android, the shadow props cover iOS.
 export const shadow = {

@@ -48,7 +48,7 @@ export function Button({ title, onPress, variant = "primary", disabled, loading,
     <ScalePressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityState={{ disabled: !!disabled || !!loading }}
+      accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
       disabled={disabled || loading}
       onPress={onPress}
       contentStyle={[s.button, primary ? s.buttonPrimary : s.buttonSecondary, (disabled || loading) && s.disabled]}
@@ -73,13 +73,15 @@ interface ChipProps {
   label: string;
   selected: boolean;
   onPress: () => void;
+  // radio: one of several choices; checkbox: an on/off filter; button: a one-shot suggestion.
+  role?: "radio" | "checkbox" | "button";
 }
 
-export function Chip({ label, selected, onPress }: ChipProps) {
+export function Chip({ label, selected, onPress, role = "button" }: ChipProps) {
   return (
     <ScalePressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityRole={role}
+      accessibilityState={role === "button" ? { selected } : { checked: selected }}
       onPress={onPress}
       contentStyle={[s.chip, selected && s.chipSelected]}
     >
@@ -96,12 +98,12 @@ interface SegmentedProps<T extends string> {
 
 export function Segmented<T extends string>({ options, value, onChange }: SegmentedProps<T>) {
   return (
-    <View style={s.segmented}>
+    <View style={s.segmented} accessibilityRole="radiogroup">
       {options.map(([key, label]) => (
         <Pressable
           key={key}
-          accessibilityRole="button"
-          accessibilityState={{ selected: key === value }}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: key === value }}
           onPress={() => onChange(key)}
           style={[s.segment, key === value && s.segmentActive]}
         >
@@ -151,7 +153,7 @@ const s = StyleSheet.create({
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: type.body, fontWeight: "600", color: colors.text },
   segmented: { flexDirection: "row", backgroundColor: colors.surface, borderRadius: radius.md, padding: space.xs },
-  segment: { flex: 1, minHeight: 40, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  segment: { flex: 1, minHeight: TOUCH, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
   segmentActive: { backgroundColor: colors.primary },
   badge: { alignSelf: "flex-start", paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.sm },
   badgeText: { color: colors.primaryText, fontSize: type.small, fontWeight: "700" },

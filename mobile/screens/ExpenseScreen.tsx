@@ -94,7 +94,7 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   container: { padding: space.lg, paddingBottom: space.xl * 3, gap: space.md },
   label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
-  input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
+  input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
 });

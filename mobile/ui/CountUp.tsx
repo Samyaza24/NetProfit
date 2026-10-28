@@ -19,5 +19,10 @@ export default function CountUp({ value, style }: { value: number; style?: Style
     return () => v.removeListener(id);
   }, [value, reduced, v]);
 
-  return <Text style={style}>{formatPHP(shown)}</Text>;
+  // The label is the final value, so a screen reader never reads the numbers counting up.
+  return (
+    <Text style={style} accessibilityLabel={formatPHP(value)}>
+      {formatPHP(shown)}
+    </Text>
+  );
 }

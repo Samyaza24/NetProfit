@@ -67,7 +67,9 @@ export default function TabBar<T extends string>({ tabs, active, onChange }: Pro
             style={s.tab}
           >
             <TabIcon name={icon} on={on} />
-            <Text style={[s.label, on && s.labelActive]}>{label}</Text>
+            <Text style={[s.label, on && s.labelActive]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}

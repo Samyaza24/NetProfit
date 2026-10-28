@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { getDailyReceived, getTotals } from "../db/repo";
 import { Card, ErrorState } from "../ui/components";
 import CountUp from "../ui/CountUp";
@@ -47,7 +47,7 @@ const load = async () => {
 };
 
 export default function AnalyticsScreen({ active = true }: { active?: boolean }) {
-  const { data, error, reload } = useLoad(load, active);
+  const { data, error, refreshing, reload } = useLoad(load, active);
   if (error && !data) return <ErrorState message={error} onRetry={reload} />;
   if (!data) return <ActivityIndicator style={s.loading} color={colors.primary} />;
   const { totals, daily } = data;
@@ -57,7 +57,10 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
   const monthNet = month.received - month.expenses;
 
   return (
-    <ScrollView contentContainerStyle={s.container}>
+    <ScrollView contentContainerStyle={s.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={reload} />}>
+      {totals[2].received === 0 && totals[2].expenses === 0 && (
+        <Text style={s.note}>Nothing recorded yet. Record a sale or an expense and your totals appear here.</Text>
+      )}
       <View style={[s.hero, monthNet < 0 && s.heroLoss]}>
         <Text style={s.heroLabel}>Net profit this month</Text>
         <CountUp value={monthNet} style={s.heroValue} />
@@ -72,7 +75,9 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
         const net = t.received - t.expenses;
         return (
           <Card key={label}>
-            <Text style={s.title}>{label}</Text>
+            <Text style={s.title} accessibilityRole="header">
+              {label}
+            </Text>
             <Text style={s.line}>Received: {formatPHP(t.received)}</Text>
             <Text style={s.line}>Expenses: {formatPHP(t.expenses)}</Text>
             <Text style={[s.net, net < 0 && s.loss]}>Net profit: {formatPHP(net)}</Text>
@@ -82,7 +87,9 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
       })}
 
       <Card>
-        <Text style={s.title}>Last 7 days (received)</Text>
+        <Text style={s.title} accessibilityRole="header">
+          Last 7 days (received)
+        </Text>
         <View style={s.chart}>
           {daily.map((d) => (
             <View
@@ -91,9 +98,13 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
               accessible
               accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
             >
-              <Text style={s.value}>{d.amount > 0 ? Math.round(d.amount) : ""}</Text>
+              <Text style={s.value} maxFontSizeMultiplier={1.3} numberOfLines={1}>
+                {d.amount > 0 ? Math.round(d.amount) : ""}
+              </Text>
               <GrowBar height={Math.max(2, (d.amount / max) * BAR_AREA)} style={s.bar} />
-              <Text style={s.day}>{d.date.toLocaleDateString("en-US", { weekday: "short" })}</Text>
+              <Text style={s.day} maxFontSizeMultiplier={1.3}>
+                {d.date.toLocaleDateString("en-PH", { weekday: "short" })}
+              </Text>
             </View>
           ))}
         </View>
@@ -116,10 +127,10 @@ const s = StyleSheet.create({
   hero: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.success, gap: space.xs },
   heroLoss: { backgroundColor: colors.danger },
   heroLabel: { fontSize: type.small, fontWeight: "700", color: colors.primaryText, textTransform: "uppercase" },
-  heroValue: { fontSize: 34, fontWeight: "800", color: colors.primaryText },
+  heroValue: { fontSize: type.hero, fontWeight: "800", color: colors.primaryText },
   heroSub: { fontSize: type.small, color: colors.primaryText },
   bar: { width: "60%", backgroundColor: colors.accent, borderRadius: radius.sm },
-  value: { fontSize: 11, color: colors.muted, height: 14 },
-  day: { fontSize: 11, color: colors.muted },
+  value: { fontSize: type.tiny, color: colors.muted, minHeight: 16 },
+  day: { fontSize: type.tiny, color: colors.muted },
   note: { color: colors.muted, fontSize: type.small },
 });

@@ -120,6 +120,7 @@ export default function TransactionScreen() {
         {TIERS.map((t) => (
           <View key={t.label} style={s.tierCell}>
             <Chip
+              role="radio"
               label={`${t.label} - ${t.amount}`}
               selected={tier.days === t.days}
               onPress={() => setTier(t)}
@@ -164,7 +165,7 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   container: { padding: space.lg, paddingBottom: space.xl * 3, gap: space.md },
   label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
-  input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
+  input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   tierCell: { width: "48%" },
   warn: { color: colors.warning, fontWeight: "600" },
