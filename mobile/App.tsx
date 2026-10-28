@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, SafeAreaView, StyleSheet, View } from "react-native";
+import { Platform, Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import PairScreen from "./screens/PairScreen";
 import TransactionScreen from "./screens/TransactionScreen";
@@ -9,6 +9,13 @@ import HistoryScreen from "./screens/HistoryScreen";
 import { isPaired } from "./sync/syncClient";
 
 type Screen = "pair" | "transaction" | "expense" | "sync" | "history";
+
+const TABS: [Screen, string][] = [
+  ["transaction", "Transaction"],
+  ["expense", "Expense"],
+  ["sync", "Sync"],
+  ["history", "History"],
+];
 
 export default function App() {
   const [paired, setPaired] = useState<boolean | null>(null);
@@ -36,10 +43,11 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.nav}>
-        <Button title="Transaction" onPress={() => setScreen("transaction")} />
-        <Button title="Expense" onPress={() => setScreen("expense")} />
-        <Button title="Sync" onPress={() => setScreen("sync")} />
-        <Button title="History" onPress={() => setScreen("history")} />
+        {TABS.map(([key, label]) => (
+          <Pressable key={key} style={[styles.tab, screen === key && styles.tabActive]} onPress={() => setScreen(key)}>
+            <Text style={[styles.tabText, screen === key && styles.tabTextActive]}>{label}</Text>
+          </Pressable>
+        ))}
       </View>
       <View style={styles.body}>
         {screen === "transaction" && <TransactionScreen />}
@@ -53,7 +61,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  nav: { flexDirection: "row", justifyContent: "space-around", padding: 8 },
+  root: { flex: 1, backgroundColor: "#fff", paddingTop: Platform.OS === "android" ? RNStatusBar.currentHeight ?? 0 : 0 },
+  nav: { flexDirection: "row", gap: 6, padding: 8, borderBottomWidth: 1, borderBottomColor: "#ddd" },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: "center", backgroundColor: "#eee" },
+  tabActive: { backgroundColor: "#1f6fb2" },
+  tabText: { fontSize: 13, fontWeight: "600", color: "#333" },
+  tabTextActive: { color: "#fff" },
   body: { flex: 1 },
 });
