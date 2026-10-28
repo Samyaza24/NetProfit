@@ -38,6 +38,37 @@ export async function findCustomerByName(name: string): Promise<Customer | null>
   return row ?? null;
 }
 
+export async function searchCustomers(prefix: string, limit = 5): Promise<Customer[]> {
+  const db = await getDb();
+  return db.getAllAsync<Customer>(
+    "SELECT * FROM customers WHERE name LIKE ? COLLATE NOCASE ORDER BY name COLLATE NOCASE LIMIT ?",
+    `%${prefix.replace(/[%_]/g, "")}%`,
+    limit
+  );
+}
+
+// True when the same customer already got the same tier within the last few minutes.
+export async function hasRecentTransaction(customerId: string, days: number, minutes = 2): Promise<boolean> {
+  const db = await getDb();
+  const since = new Date(Date.now() - minutes * 60_000).toISOString();
+  const row = await db.getFirstAsync<{ id: string }>(
+    "SELECT id FROM transactions WHERE customer_id = ? AND duration_days = ? AND timestamp >= ? LIMIT 1",
+    customerId,
+    days,
+    since
+  );
+  return row !== null;
+}
+
+export async function listRecentDescriptions(limit = 5): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ description: string }>(
+    "SELECT description FROM expenses GROUP BY description ORDER BY MAX(timestamp) DESC LIMIT ?",
+    limit
+  );
+  return rows.map((r) => r.description);
+}
+
 export async function createLocalCustomer(name: string): Promise<Customer> {
   const db = await getDb();
   const customer: Customer = {
