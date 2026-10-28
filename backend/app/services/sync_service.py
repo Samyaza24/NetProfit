@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,6 +53,11 @@ def process_transaction_sync(
                 existing.status = c.status
                 existing.updated_at = incoming_updated
                 counts.customers += 1
+
+        needed = {t.customer_id for t in payload.transactions} - existing_customers.keys()
+        known = set(db.execute(select(Customer.id).where(Customer.id.in_(needed))).scalars())
+        if missing := needed - known:
+            raise HTTPException(422, f"Unknown customer_id: {sorted(missing)[0]}")
 
         for t in payload.transactions:
             if t.id in existing_transaction_ids:

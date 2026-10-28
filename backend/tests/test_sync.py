@@ -50,6 +50,12 @@ def test_push_keeps_client_timestamp(client, auth):
     assert pulled["expenses"][0]["timestamp"].startswith("2020-01-02T03:04:05")
 
 
+def test_push_rejects_unknown_customer(client, auth):
+    res = client.post(SYNC, json={"transactions": [txn(new_id())]}, headers=auth)
+    assert res.status_code == 422
+    assert client.get(SYNC, headers=auth).json()["transactions"] == []
+
+
 def test_push_is_idempotent(client, auth):
     cid = new_id()
     # Mobile clients always send updated_at; without it the server stamps "now" on every push.

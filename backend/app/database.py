@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
@@ -10,7 +10,18 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # check_same_thread=False: Starlette runs sync route handlers in a threadpool.
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_conn, _):
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA foreign_keys=ON")
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA busy_timeout=5000")
+    cur.close()
+
+
+SessionLocal =sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db():
