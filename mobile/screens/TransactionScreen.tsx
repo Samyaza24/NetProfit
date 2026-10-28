@@ -43,18 +43,37 @@ export default function TransactionScreen() {
     });
   }, []);
 
+  // Any change to the form clears the "save again?" warning and the last error.
   useEffect(() => {
-    const q = name.trim();
     setConfirmDup(false);
     setError(null);
+  }, [name, tier, status]);
+
+  // Look up matching clients shortly after typing stops; an older answer never replaces a newer one.
+  useEffect(() => {
+    const q = name.trim();
     if (!q) {
       setSuggestions([]);
       setExisting(null);
       return;
     }
-    searchCustomers(q).then(setSuggestions);
-    findCustomerByName(q).then(setExisting);
-  }, [name, tier, status]);
+    let live = true;
+    const timer = setTimeout(async () => {
+      try {
+        const [found, exact] = await Promise.all([searchCustomers(q), findCustomerByName(q)]);
+        if (live) {
+          setSuggestions(found);
+          setExisting(exact);
+        }
+      } catch {
+        // Suggestions are a convenience; saving still looks the client up itself.
+      }
+    }, 180);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [name]);
 
   async function submit() {
     if (busy.current) return; // a ref, so a fast double tap cannot save twice or create a duplicate client

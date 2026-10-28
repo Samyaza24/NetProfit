@@ -1,4 +1,5 @@
 import * as SQLite from "expo-sqlite";
+import { notifyDataChange } from "./events";
 
 // expo-sqlite's package.json exports map is misordered ("default" before "types"),
 // so TS can't see its real types here; this local interface covers what we use.
@@ -15,7 +16,18 @@ export interface Db {
 let dbPromise: Promise<Db> | null = null;
 
 async function initDb(): Promise<Db> {
-  const db = (await SQLite.openDatabaseAsync("netprofit.db")) as Db;
+  const raw = (await SQLite.openDatabaseAsync("netprofit.db")) as Db;
+  // Every write announces itself, so screens like the status strip refresh without polling.
+  const db: Db = {
+    execAsync: (sql) => raw.execAsync(sql),
+    runAsync: async (sql, ...params) => {
+      const result = await raw.runAsync(sql, ...params);
+      notifyDataChange();
+      return result;
+    },
+    getFirstAsync: (sql, ...params) => raw.getFirstAsync(sql, ...params),
+    getAllAsync: (sql, ...params) => raw.getAllAsync(sql, ...params),
+  };
   await db.execAsync(`
         CREATE TABLE IF NOT EXISTS customers (
           id TEXT PRIMARY KEY NOT NULL,
@@ -56,6 +68,15 @@ async function initDb(): Promise<Db> {
       await db.execAsync(`ALTER TABLE ${table} ADD COLUMN rev INTEGER NOT NULL DEFAULT 0`);
     }
   }
+  // Indexes for the lookups the screens do on every open (client history, recent sales, pending rows).
+  await db.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_txn_customer ON transactions (customer_id, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_txn_timestamp ON transactions (timestamp);
+    CREATE INDEX IF NOT EXISTS idx_txn_synced ON transactions (synced);
+    CREATE INDEX IF NOT EXISTS idx_exp_timestamp ON expenses (timestamp);
+    CREATE INDEX IF NOT EXISTS idx_exp_synced ON expenses (synced);
+    CREATE INDEX IF NOT EXISTS idx_cust_synced ON customers (synced);
+  `);
   return db;
 }
 

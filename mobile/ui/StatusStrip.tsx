@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { onDataChange } from "../db/events";
 import { countUnsynced } from "../db/repo";
 import Icon from "./Icon";
 import Logo from "./Logo";
 import { colors, space, TOUCH, type } from "./theme";
 import { useReducedMotion } from "./useReducedMotion";
 
-// Brand plus always-visible sync state; polls the local count since writes happen on many screens.
+// Brand plus always-visible sync state; recounts whenever local data changes.
 export default function StatusStrip({ onPress }: { onPress: () => void }) {
   const [pending, setPending] = useState(0);
   const reduced = useReducedMotion();
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const load = () => countUnsynced().then(setPending);
+    const load = () => countUnsynced().then(setPending, () => undefined);
     load();
-    const id = setInterval(load, 3000);
-    return () => clearInterval(id);
+    return onDataChange(load);
   }, []);
 
   // Gentle pulse only while something is waiting to sync.
