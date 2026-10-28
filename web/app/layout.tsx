@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -26,9 +27,11 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
         <nav style={{ display: "flex", gap: 16, padding: 16, borderBottom: "1px solid #ccc" }}>
-          <a href="/">Dashboard</a>
-          <a href="/devices">Devices</a>
-          <a href="/pair">Pair Device</a>
+          <Link href="/">Dashboard</Link>
+          <Link href="/transactions">Transactions</Link>
+          <Link href="/expenses">Expenses</Link>
+          <Link href="/devices">Devices</Link>
+          <Link href="/pair">Pair Device</Link>
         </nav>
         <main style={{ padding: 16 }}>{children}</main>
       </body>

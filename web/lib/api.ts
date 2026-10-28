@@ -1,17 +1,17 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8001/api/v1";
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
-  return res.json();
-}
-
-export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+    method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.json().then((j) => j.detail, () => null);
+    throw new Error(`${method} ${path} failed: ${res.status}${detail ? ` (${detail})` : ""}`);
+  }
   return res.json();
 }
+
+export const apiGet = <T,>(path: string) => request<T>("GET", path);
+export const apiPost = <T,>(path: string, body?: unknown) => request<T>("POST", path, body);

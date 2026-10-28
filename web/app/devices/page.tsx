@@ -24,8 +24,13 @@ export default function DevicesPage() {
   useEffect(load, []);
 
   async function revoke(id: string) {
-    await apiPost(`/devices/${id}/revoke`);
-    load();
+    if (!confirm("Revoke this device? It will need to re-pair to sync.")) return;
+    try {
+      await apiPost(`/devices/${id}/revoke`);
+      load();
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   if (error) return <p>Error loading devices: {error}</p>;
