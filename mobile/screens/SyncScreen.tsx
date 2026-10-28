@@ -9,6 +9,7 @@ import { Button, Card } from "../ui/components";
 import Icon from "../ui/Icon";
 import { colors, space, type } from "../ui/theme";
 import ExportCard from "./ExportCard";
+import ResetCard from "./ResetCard";
 
 interface Props {
   active?: boolean;
@@ -69,6 +70,9 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
       {outcome?.kind === "ok" && (
         <Card>
           <Text style={s.ok}>Sync complete</Text>
+          {outcome.result.wasReset && (
+            <Text style={s.line}>The data was reset on the PC, so this phone erased its old copy and started fresh.</Text>
+          )}
           <Text style={s.line}>
             Sent: {plural(outcome.result.pushed.transactions, "sale")}, {plural(outcome.result.pushed.expenses, "expense")},{" "}
             {plural(outcome.result.pushed.customers, "client")}
@@ -100,6 +104,7 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
       )}
 
       <ExportCard />
+      <ResetCard />
     </ScrollView>
   );
 }

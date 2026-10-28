@@ -184,6 +184,16 @@ export async function applyCustomerRemap(remap: Record<string, string>): Promise
 
 // Clears the pending flag only for rows unchanged since they were read (same rev), so an edit made
 // while a sync was running stays pending and goes out on the next sync.
+// Erases every customer, sale and expense on this phone and forgets the last sync time. The pairing
+// (server address and token) and the data version are kept by the caller.
+export async function eraseAllLocalData(): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM transactions");
+  await db.runAsync("DELETE FROM expenses");
+  await db.runAsync("DELETE FROM customers");
+  await db.runAsync("DELETE FROM sync_meta WHERE key = 'last_synced_at'");
+}
+
 export async function markSynced(
   table: "customers" | "transactions",
   rows: { id: string; rev: number }[]

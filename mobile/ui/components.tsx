@@ -7,7 +7,8 @@ import { useReducedMotion } from "./useReducedMotion";
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: "primary" | "secondary";
+  // danger is a filled red button, for actions that erase data.
+  variant?: "primary" | "secondary" | "danger";
   disabled?: boolean;
   loading?: boolean;
   icon?: IconName;
@@ -43,7 +44,7 @@ function ScalePressable({ contentStyle, children, onPressIn, onPressOut, ...rest
 }
 
 export function Button({ title, onPress, variant = "primary", disabled, loading, icon }: ButtonProps) {
-  const primary = variant === "primary";
+  const primary = variant !== "secondary"; // filled buttons use white text
   return (
     <ScalePressable
       accessibilityRole="button"
@@ -51,7 +52,11 @@ export function Button({ title, onPress, variant = "primary", disabled, loading,
       accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
       disabled={disabled || loading}
       onPress={onPress}
-      contentStyle={[s.button, primary ? s.buttonPrimary : s.buttonSecondary, (disabled || loading) && s.disabled]}
+      contentStyle={[
+        s.button,
+        variant === "danger" ? s.buttonDanger : primary ? s.buttonPrimary : s.buttonSecondary,
+        (disabled || loading) && s.disabled,
+      ]}
     >
       {loading ? (
         <ActivityIndicator color={primary ? colors.primaryText : colors.primary} />
@@ -160,6 +165,7 @@ export function EmptyState({ text, icon = "file-tray-outline" }: { text: string;
 const s = StyleSheet.create({
   button: { minHeight: TOUCH, borderRadius: radius.md, alignItems: "center", justifyContent: "center", paddingHorizontal: space.lg },
   buttonPrimary: { backgroundColor: colors.primary },
+  buttonDanger: { backgroundColor: colors.danger },
   buttonSecondary: { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.primary },
   buttonText: { color: colors.primaryText, fontSize: type.body, fontWeight: "700" },
   disabled: { opacity: 0.5 },

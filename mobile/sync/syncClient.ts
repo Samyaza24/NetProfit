@@ -3,6 +3,7 @@ import { fetchWithTimeout } from "../lib/http";
 import { getMeta, setMeta } from "../db/schema";
 import {
   applyCustomerRemap,
+  eraseAllLocalData,
   getUnsyncedCustomers,
   getUnsyncedExpenses,
   getUnsyncedTransactions,
@@ -43,6 +44,8 @@ async function authHeaders(): Promise<{ "X-NetProfit-Key": string; "Content-Type
 export interface SyncResult {
   pushed: { customers: number; transactions: number; expenses: number };
   pulled: { customers: number; transactions: number; expenses: number };
+  // True when the PC had been reset, so this phone erased its old data and started fresh.
+  wasReset?: boolean;
 }
 
 // Only one sync runs at a time; a second caller gets the one already in progress.
@@ -59,16 +62,39 @@ export function syncNow(): Promise<SyncResult> {
   return inflight;
 }
 
-async function runSync(): Promise<SyncResult> {
+// Erases all shop data on the PC and on this phone; other phones erase theirs on their next sync.
+// The PC must be reachable, so the phone and the PC can never disagree about what was erased.
+export async function resetEverything(): Promise<void> {
   const serverUrl = await getMeta("server_url");
   if (!serverUrl) throw new AuthError("Not paired");
   const headers = await authHeaders();
+  await inflight?.catch(() => undefined); // let a sync in progress finish first
+
+  const res = await fetchWithTimeout(`${serverUrl}/sync/reset`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ confirm: "RESET" }),
+  });
+  if (res.status === 401) throw new AuthError("Device token invalid or revoked");
+  if (!res.ok) throw new Error(`Reset failed: ${res.status}`);
+  const { data_epoch }: { data_epoch: string } = await res.json();
+
+  await eraseAllLocalData();
+  await setMeta("data_epoch", data_epoch);
+}
+
+async function runSync(afterReset = false): Promise<SyncResult> {
+  const serverUrl = await getMeta("server_url");
+  if (!serverUrl) throw new AuthError("Not paired");
+  const headers = await authHeaders();
+  const epoch = await getMeta("data_epoch");
 
   const customers = await getUnsyncedCustomers();
   const transactions = await getUnsyncedTransactions();
   const expenses = await getUnsyncedExpenses();
 
   const pushBody = {
+    data_epoch: epoch ?? undefined,
     customers: customers.map((c) => ({
       id: c.id,
       name: c.name,
@@ -99,10 +125,21 @@ async function runSync(): Promise<SyncResult> {
     body: JSON.stringify(pushBody),
   });
   if (pushRes.status === 401) throw new AuthError("Device token invalid or revoked");
+
+  // The PC was reset since this phone last synced: drop the old data, adopt the new version, start fresh.
+  if (pushRes.status === 409) {
+    const body = await pushRes.json().catch(() => null);
+    const next: string | undefined = body?.detail?.code === "data_reset" ? body.detail.data_epoch : undefined;
+    if (!next || afterReset) throw new Error("Push failed: 409");
+    await eraseAllLocalData();
+    await setMeta("data_epoch", next);
+    return { ...(await runSync(true)), wasReset: true };
+  }
   if (!pushRes.ok) throw new Error(`Push failed: ${pushRes.status}`);
 
   // Names the server already had under another id: follow the server's customer.
-  const pushed: { customer_remap?: Record<string, string> } = await pushRes.json();
+  const pushed: { customer_remap?: Record<string, string>; data_epoch?: string } = await pushRes.json();
+  if (!epoch && pushed.data_epoch) await setMeta("data_epoch", pushed.data_epoch); // first sync: learn the version
   const needFullPull = await applyCustomerRemap(pushed.customer_remap ?? {});
 
   await markSynced("customers", customers);
