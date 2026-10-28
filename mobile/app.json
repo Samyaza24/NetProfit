@@ -1,15 +1,19 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "NetProfit",
+    "slug": "netprofit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.netprofit.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.netprofit.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#1f6fb2",
         "foregroundImage": "./assets/android-icon-foreground.png",

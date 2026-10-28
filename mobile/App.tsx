@@ -15,7 +15,7 @@ import StatusStrip from "./ui/StatusStrip";
 import TabBar from "./ui/TabBar";
 import { colors } from "./ui/theme";
 import { ReducedMotionProvider } from "./ui/useReducedMotion";
-import { isPaired } from "./sync/syncClient";
+import { isPaired, syncNow } from "./sync/syncClient";
 
 type Screen = "record" | "customers" | "analytics" | "sync";
 
@@ -97,7 +97,12 @@ function AppRoot() {
   if (!paired) {
     return (
       <View style={root}>
-        <PairScreen onPaired={() => setPaired(true)} />
+        <PairScreen
+          onPaired={() => {
+            setPaired(true);
+            syncNow().catch(() => undefined); // first pull, so a phone paired to a PC with data is not empty
+          }}
+        />
         <StatusBar style="auto" />
       </View>
     );
