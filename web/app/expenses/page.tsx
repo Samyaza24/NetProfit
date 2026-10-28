@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
-import { EmptyState, ErrorState, PageHeader, TableSkeleton } from "@/components/ui";
+import { EmptyState, ErrorState, PageHeader, Segmented, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { downloadCsv } from "@/lib/csv";
-import { formatDateTime, formatPHP, parseTs } from "@/lib/format";
+import { formatClock, formatDay, formatNum, formatPHP, parseTs } from "@/lib/format";
 import { inRange, Range, RANGES } from "@/lib/range";
 import { Exp } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
@@ -45,6 +45,7 @@ export default function ExpensesPage() {
   }
 
   const total = rows.reduce((s, x) => s + x.amount, 0);
+  const largest = rows.reduce((m, x) => Math.max(m, x.amount), 0);
   const device = (x: Exp) => (x.device_id ? (labels[x.device_id] ?? "Unknown device") : "-");
 
   function exportCsv() {
@@ -66,6 +67,12 @@ export default function ExpensesPage() {
         </button>
       </PageHeader>
 
+      <SummaryGrid>
+        <StatCard tone={total > 0 ? "neg" : undefined} label="Total spent" value={formatPHP(total)} sub="Expenses in this view" />
+        <StatCard label="Expenses" value={String(rows.length)} sub="Matching the filters" />
+        <StatCard label="Largest" value={formatPHP(largest)} sub="Single biggest expense" />
+      </SummaryGrid>
+
       <div className="toolbar">
         <input
           className="input search"
@@ -78,11 +85,7 @@ export default function ExpensesPage() {
             setLimit(PAGE);
           }}
         />
-        {RANGES.map(([key, label]) => (
-          <button key={key} className="chip" aria-pressed={range === key} onClick={() => setRange(key)}>
-            {label}
-          </button>
-        ))}
+        <Segmented label="Date range" options={RANGES} value={range} onChange={setRange} />
       </div>
 
       {rows.length === 0 ? (
@@ -97,29 +100,25 @@ export default function ExpensesPage() {
             <caption>Expenses</caption>
             <thead>
               <tr>
-                <th>Time</th>
+                <th>Date</th>
                 <th>Description</th>
-                <th className="num">Amount</th>
+                <th className="num">Amount (PHP)</th>
                 <th>Device</th>
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, limit).map((x) => (
                 <tr key={x.id}>
-                  <td>{formatDateTime(x.timestamp)}</td>
-                  <td>{x.description}</td>
-                  <td className="num">{formatPHP(x.amount)}</td>
-                  <td>{device(x)}</td>
+                  <td className="time">
+                    {formatDay(x.timestamp)}
+                    <span className="sub">{formatClock(x.timestamp)}</span>
+                  </td>
+                  <td><strong>{x.description}</strong></td>
+                  <td className="num">{formatNum(x.amount)}</td>
+                  <td className="muted">{device(x)}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2}>{rows.length} expenses</td>
-                <td className="num">{formatPHP(total)}</td>
-                <td />
-              </tr>
-            </tfoot>
           </table>
           {rows.length > limit && (
             <div className="more">

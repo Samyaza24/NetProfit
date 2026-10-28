@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
-import { Badge, EmptyState, ErrorState, PageHeader, TableSkeleton } from "@/components/ui";
+import { Badge, EmptyState, ErrorState, PageHeader, Segmented, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { downloadCsv } from "@/lib/csv";
-import { formatDateTime, formatPHP, parseTs, tierLabel } from "@/lib/format";
+import { formatClock, formatDay, formatNum, formatPHP, parseTs, tierLabel } from "@/lib/format";
 import { inRange, Range, RANGES } from "@/lib/range";
 import { Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
@@ -17,6 +17,8 @@ interface Named {
 }
 
 type Status = "all" | "Paid" | "Unpaid";
+
+const STATUSES: [Status, string][] = [["all", "All"], ["Paid", "Paid"], ["Unpaid", "Unpaid"]];
 
 const PAGE = 50;
 const load = () =>
@@ -80,6 +82,12 @@ export default function TransactionsPage() {
         </button>
       </PageHeader>
 
+      <SummaryGrid>
+        <StatCard tone="pos" label="Received" value={formatPHP(paid)} sub="Paid sales in this view" />
+        <StatCard tone={unpaid > 0 ? "neg" : undefined} label="Unpaid" value={formatPHP(unpaid)} sub="Still to be collected" />
+        <StatCard label="Transactions" value={String(rows.length)} sub="Matching the filters" />
+      </SummaryGrid>
+
       <div className="toolbar">
         <input
           className="input search"
@@ -92,17 +100,9 @@ export default function TransactionsPage() {
             setLimit(PAGE);
           }}
         />
-        {RANGES.map(([key, label]) => (
-          <button key={key} className="chip" aria-pressed={range === key} onClick={() => setRange(key)}>
-            {label}
-          </button>
-        ))}
+        <Segmented label="Date range" options={RANGES} value={range} onChange={setRange} />
         <span className="spacer" />
-        {(["all", "Paid", "Unpaid"] as Status[]).map((s) => (
-          <button key={s} className="chip" aria-pressed={status === s} onClick={() => setStatus(s)}>
-            {s === "all" ? "All" : s}
-          </button>
-        ))}
+        <Segmented<Status> label="Payment status" options={STATUSES} value={status} onChange={setStatus} />
       </div>
 
       {rows.length === 0 ? (
@@ -117,35 +117,41 @@ export default function TransactionsPage() {
             <caption>Transactions</caption>
             <thead>
               <tr>
-                <th>Time</th>
+                <th>Date</th>
                 <th>Customer</th>
-                <th className="num">Amount</th>
                 <th>Plan</th>
+                <th className="num">Amount (PHP)</th>
                 <th>Status</th>
                 <th>Device</th>
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, limit).map((t) => (
-                <tr key={t.id}>
-                  <td>{formatDateTime(t.timestamp)}</td>
-                  <td>{names[t.customer_id] ?? t.customer_id}</td>
-                  <td className="num">{formatPHP(t.amount_received)}</td>
-                  <td>{tierLabel(t.duration_days)}</td>
-                  <td>
-                    <Badge tone={t.status === "Paid" ? "success" : "danger"}>{t.status}</Badge>
-                  </td>
-                  <td>{device(t)}</td>
-                </tr>
-              ))}
+              {rows.slice(0, limit).map((t) => {
+                const name = names[t.customer_id] ?? t.customer_id;
+                return (
+                  <tr key={t.id}>
+                    <td className="time">
+                      {formatDay(t.timestamp)}
+                      <span className="sub">{formatClock(t.timestamp)}</span>
+                    </td>
+                    <td>
+                      <div className="cell-name">
+                        <span className="avatar" aria-hidden="true">
+                          {name.trim().charAt(0).toUpperCase()}
+                        </span>
+                        {name}
+                      </div>
+                    </td>
+                    <td>{tierLabel(t.duration_days)}</td>
+                    <td className="num">{formatNum(t.amount_received)}</td>
+                    <td>
+                      <Badge tone={t.status === "Paid" ? "success" : "danger"}>{t.status}</Badge>
+                    </td>
+                    <td className="muted">{device(t)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2}>{rows.length} transactions</td>
-                <td className="num">{formatPHP(paid)}</td>
-                <td colSpan={3}>{unpaid > 0 ? `${formatPHP(unpaid)} unpaid` : "paid in full"}</td>
-              </tr>
-            </tfoot>
           </table>
           {rows.length > limit && (
             <div className="more">

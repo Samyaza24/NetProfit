@@ -6,6 +6,13 @@ export function parseTs(s: string): Date {
   return new Date(/Z$|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}Z`);
 }
 
+export const formatNum = (n: number) =>
+  n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export const formatDay = (s: string) => parseTs(s).toLocaleDateString("en-PH", { dateStyle: "medium" });
+
+export const formatClock = (s: string) => parseTs(s).toLocaleTimeString("en-PH", { timeStyle: "short" });
+
 export const formatDateTime = (s: string) =>
   parseTs(s).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
 

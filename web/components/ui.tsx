@@ -17,6 +17,30 @@ export function Badge({ tone, children }: { tone: "success" | "danger" | "warnin
   return <span className={`badge ${tone}`}>{children}</span>;
 }
 
+interface SegmentedProps<T extends string> {
+  label: string;
+  options: [T, string][];
+  value: T;
+  onChange: (v: T) => void;
+}
+
+// Joined button group for choosing one filter value.
+export function Segmented<T extends string>({ label, options, value, onChange }: SegmentedProps<T>) {
+  return (
+    <div className="segmented" role="group" aria-label={label}>
+      {options.map(([key, text]) => (
+        <button key={key} aria-pressed={key === value} onClick={() => onChange(key)}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function SummaryGrid({ children }: { children: ReactNode }) {
+  return <div className="stat-grid compact">{children}</div>;
+}
+
 interface StatCardProps {
   label: string;
   value: ReactNode;
