@@ -261,6 +261,14 @@ export async function listCustomerSummaries(): Promise<CustomerSummary[]> {
   );
 }
 
+export async function listCustomerTransactions(customerId: string): Promise<Transaction[]> {
+  const db = await getDb();
+  return db.getAllAsync<Transaction>(
+    "SELECT * FROM transactions WHERE customer_id = ? ORDER BY timestamp DESC",
+    customerId
+  );
+}
+
 export interface Totals {
   received: number;
   unpaid: number;
