@@ -313,6 +313,39 @@ export async function listHistory(search: string, limit: number): Promise<Histor
   );
 }
 
+export interface SaleExportRow {
+  timestamp: string;
+  client: string | null;
+  duration_days: number;
+  amount_received: number;
+  status: string;
+}
+
+export interface ExpenseExportRow {
+  timestamp: string;
+  description: string;
+  amount: number;
+}
+
+// Rows for the CSV export; `since` is an ISO lower bound or null for everything.
+export async function listSalesForExport(since: string | null): Promise<SaleExportRow[]> {
+  const db = await getDb();
+  return db.getAllAsync<SaleExportRow>(
+    `SELECT t.timestamp, c.name AS client, t.duration_days, t.amount_received, t.status
+     FROM transactions t LEFT JOIN customers c ON c.id = t.customer_id
+     WHERE t.timestamp >= ? ORDER BY t.timestamp DESC`,
+    since ?? ""
+  );
+}
+
+export async function listExpensesForExport(since: string | null): Promise<ExpenseExportRow[]> {
+  const db = await getDb();
+  return db.getAllAsync<ExpenseExportRow>(
+    "SELECT timestamp, description, amount FROM expenses WHERE timestamp >= ? ORDER BY timestamp DESC",
+    since ?? ""
+  );
+}
+
 export interface TodaySummary {
   received: number;
   sales: number;

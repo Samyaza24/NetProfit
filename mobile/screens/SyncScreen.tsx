@@ -8,6 +8,7 @@ import { AuthError, isSyncing, SyncResult, syncNow } from "../sync/syncClient";
 import { Button, Card } from "../ui/components";
 import Icon from "../ui/Icon";
 import { colors, space, type } from "../ui/theme";
+import ExportCard from "./ExportCard";
 
 interface Props {
   active?: boolean;
@@ -97,6 +98,8 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
           <Button title="Try again" variant="secondary" onPress={handleSync} />
         </Card>
       )}
+
+      <ExportCard />
     </ScrollView>
   );
 }

@@ -11,6 +11,8 @@ export interface Db {
   ): Promise<{ lastInsertRowId: number; changes: number }>;
   getFirstAsync<T>(sql: string, ...params: unknown[]): Promise<T | null>;
   getAllAsync<T>(sql: string, ...params: unknown[]): Promise<T[]>;
+  // The whole database as bytes, for backups.
+  serializeAsync(): Promise<Uint8Array>;
 }
 
 let dbPromise: Promise<Db> | null = null;
@@ -27,6 +29,7 @@ async function initDb(): Promise<Db> {
     },
     getFirstAsync: (sql, ...params) => raw.getFirstAsync(sql, ...params),
     getAllAsync: (sql, ...params) => raw.getAllAsync(sql, ...params),
+    serializeAsync: () => raw.serializeAsync(),
   };
   await db.execAsync(`
         CREATE TABLE IF NOT EXISTS customers (
