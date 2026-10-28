@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { CustomerSummary, listCustomerSummaries } from "../db/repo";
 import { Badge, Chip, EmptyState } from "../ui/components";
 import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
 import CustomerDetailScreen from "./CustomerDetailScreen";
 
 export default function CustomersScreen() {
-  const [rows, setRows] = useState<CustomerSummary[]>([]);
+  const [rows, setRows] = useState<CustomerSummary[] | null>(null);
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
@@ -15,7 +15,18 @@ export default function CustomersScreen() {
     listCustomerSummaries().then(setRows);
   }, []);
 
+  // Android back closes the detail view instead of leaving the screen.
+  useEffect(() => {
+    if (!selected) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSelected(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [selected]);
+
   if (selected) return <CustomerDetailScreen customer={selected} onBack={() => setSelected(null)} />;
+  if (!rows) return <ActivityIndicator style={s.loading} color={colors.primary} />;
 
   const shown = rows
     .filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -56,6 +67,7 @@ export default function CustomersScreen() {
 }
 
 const s = StyleSheet.create({
+  loading: { marginTop: space.xl },
   container: { flex: 1, padding: space.lg, gap: space.sm },
   search: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
   filters: { flexDirection: "row", alignItems: "center", gap: space.md },

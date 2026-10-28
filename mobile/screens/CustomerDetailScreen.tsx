@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import { CustomerSummary, listCustomerTransactions, Transaction } from "../db/repo";
+import { CustomerSummary, listCustomerTransactions, parseTs, Transaction } from "../db/repo";
 import { Badge, Button, Card, EmptyState } from "../ui/components";
 import { colors, formatPHP, space, type } from "../ui/theme";
 
@@ -37,7 +37,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
           <View style={s.row}>
             <View style={s.rowMain}>
               <Text style={s.rowTitle}>{tierName(item.duration_days)}</Text>
-              <Text style={s.muted}>{new Date(item.timestamp).toLocaleString()}</Text>
+              <Text style={s.muted}>{parseTs(item.timestamp).toLocaleString()}</Text>
             </View>
             <View style={s.rowEnd}>
               <Text style={s.rowTitle}>{formatPHP(item.amount_received)}</Text>

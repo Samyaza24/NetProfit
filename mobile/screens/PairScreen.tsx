@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Alert, Button, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { storeCredentials } from "../sync/syncClient";
+import { Button } from "../ui/components";
+import { colors, space, type } from "../ui/theme";
 
 interface Props {
   onPaired: () => void;
@@ -11,11 +13,13 @@ export default function PairScreen({ onPaired }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleScan({ data }: { data: string }) {
     if (busy) return;
     setBusy(true);
     setScanning(false);
+    setError(null);
     try {
       const payload = JSON.parse(data) as { pairing_code: string; server_url: string };
       const res = await fetch(`${payload.server_url}/devices/pair`, {
@@ -28,7 +32,7 @@ export default function PairScreen({ onPaired }: Props) {
       await storeCredentials(result.token, result.server_url, result.device_id);
       onPaired();
     } catch (e) {
-      Alert.alert("Pairing failed", String(e));
+      setError(`${String(e)}. Generate a new QR on the PC and try again.`);
     } finally {
       setBusy(false);
     }
@@ -38,35 +42,41 @@ export default function PairScreen({ onPaired }: Props) {
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text>Camera access is needed to scan the pairing QR code.</Text>
-        <Button title="Grant Permission" onPress={requestPermission} />
+      <View style={s.container}>
+        <Text style={s.title}>Camera needed</Text>
+        <Text style={s.body}>Allow camera access to scan the pairing QR code.</Text>
+        <Button title="Allow camera" onPress={requestPermission} />
       </View>
     );
   }
 
   if (!scanning) {
     return (
-      <View style={styles.container}>
-        <Text>Pair this phone with your NetProfit desktop server.</Text>
-        <Button title="Scan Pairing QR" onPress={() => setScanning(true)} />
+      <View style={s.container}>
+        <Text style={s.title}>Pair this phone</Text>
+        <Text style={s.body}>On your PC open the Pair page, generate a QR code, then scan it here.</Text>
+        {error && <Text style={s.error}>{error}</Text>}
+        <Button title="Scan pairing QR" onPress={() => setScanning(true)} loading={busy} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={handleScan}
-      />
-      <Button title="Cancel" onPress={() => setScanning(false)} />
+    <View style={s.scan}>
+      <CameraView style={s.camera} barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={handleScan} />
+      <View style={s.cancel}>
+        <Button title="Cancel" variant="secondary" onPress={() => setScanning(false)} />
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 16, gap: 12 },
-  camera: { width: "100%", flex: 1 },
+const s = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center", padding: space.xl, gap: space.md },
+  title: { fontSize: type.big, fontWeight: "700", color: colors.text },
+  body: { fontSize: type.body, color: colors.muted },
+  error: { fontSize: type.body, color: colors.danger },
+  scan: { flex: 1 },
+  camera: { flex: 1 },
+  cancel: { padding: space.lg },
 });
