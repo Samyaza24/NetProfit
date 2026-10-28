@@ -15,6 +15,7 @@ export function CutoffCell({ conn }: { conn: Connection | undefined }) {
       {info.day}
       <span className="sub">
         {info.clock} - {info.rel}
+        {info.manual ? " - cut off by you" : ""}
       </span>
     </td>
   );

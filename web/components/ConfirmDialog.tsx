@@ -6,13 +6,14 @@ interface Props {
   open: boolean;
   title: string;
   confirmLabel: string;
+  tone?: "danger" | "primary";
   onConfirm: () => void;
   onCancel: () => void;
   children: ReactNode;
 }
 
 // Native <dialog> gives focus trapping and Escape handling for free.
-export default function ConfirmDialog({ open, title, confirmLabel, onConfirm, onCancel, children }: Props) {
+export default function ConfirmDialog({ open, title, confirmLabel, tone = "danger", onConfirm, onCancel, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export default function ConfirmDialog({ open, title, confirmLabel, onConfirm, on
         <button className="btn secondary" onClick={onCancel}>
           Cancel
         </button>
-        <button className="btn danger" onClick={onConfirm}>
+        <button className={tone === "danger" ? "btn danger" : "btn"} onClick={onConfirm}>
           {confirmLabel}
         </button>
       </div>

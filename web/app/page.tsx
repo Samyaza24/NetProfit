@@ -9,7 +9,7 @@ import CountUp from "@/components/CountUp";
 import Icon from "@/components/Icon";
 import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, Segmented, StatCard, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
-import { connectionsByCustomer } from "@/lib/connection";
+import { connectionsByCustomer, CustomerStatus } from "@/lib/connection";
 import { formatPHP } from "@/lib/format";
 import { dailyReceived, Exp, startOfMonth, totals, Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
@@ -29,7 +29,12 @@ const CONN_FILTERS: [ConnFilter, string][] = [["all", "All"], ["connected", "Con
 
 const PAGE = 25;
 const load = () =>
-  Promise.all([apiGet<DashboardRow[]>("/dashboard"), apiGet<Txn[]>("/transactions"), apiGet<Exp[]>("/expenses")]);
+  Promise.all([
+    apiGet<DashboardRow[]>("/dashboard"),
+    apiGet<Txn[]>("/transactions"),
+    apiGet<Exp[]>("/expenses"),
+    apiGet<CustomerStatus[]>("/customers"),
+  ]);
 
 export default function DashboardPage() {
   const { data, error, loading, reload } = useFetch(load);
@@ -40,7 +45,7 @@ export default function DashboardPage() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "outstanding_debt", dir: -1 });
   const [limit, setLimit] = useState(PAGE);
 
-  const conns = useMemo(() => connectionsByCustomer(data?.[1] ?? []), [data]);
+  const conns = useMemo(() => connectionsByCustomer(data?.[1] ?? [], data?.[3] ?? []), [data]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import Icon from "@/components/Icon";
 import { Badge, EmptyState, ErrorState, PageHeader, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPatch } from "@/lib/api";
 import { connectionOf, cutoffInfo } from "@/lib/connection";
 import { formatClock, formatDay, formatNum, formatPHP, parseTs, timeAgo, tierLabel } from "@/lib/format";
 import { Txn } from "@/lib/stats";
@@ -15,6 +16,7 @@ interface Customer {
   id: string;
   name: string;
   status: string;
+  updated_at: string;
 }
 
 interface Device {
@@ -29,6 +31,8 @@ export default function CustomerPage() {
     [id]
   );
   const { data, error, loading, reload } = useFetch(load);
+  const [confirm, setConfirm] = useState<"cut" | "reconnect" | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const rows = useMemo(
     () =>
@@ -54,8 +58,20 @@ export default function CustomerPage() {
   const paid = rows.filter((t) => t.status === "Paid").reduce((s, t) => s + t.amount_received, 0);
   const owes = rows.filter((t) => t.status === "Unpaid").reduce((s, t) => s + t.amount_received, 0);
   const last = rows[0]?.timestamp ?? null;
-  const conn = connectionOf(rows.map((t) => ({ at: parseTs(t.timestamp).getTime(), days: t.duration_days })));
+  const plans = rows.map((t) => ({ at: parseTs(t.timestamp).getTime(), days: t.duration_days }));
+  const conn = connectionOf(plans, undefined, customer.status === "Disabled" ? parseTs(customer.updated_at).getTime() : null);
   const cutoff = cutoffInfo(conn);
+
+  async function setStatus(status: "Active" | "Disabled") {
+    try {
+      await apiPatch(`/customers/${id}`, { status });
+      setActionError(null);
+      reload();
+    } catch (e) {
+      setActionError(String(e));
+    }
+    setConfirm(null);
+  }
 
   return (
     <>
@@ -67,14 +83,38 @@ export default function CustomerPage() {
         <button className="btn secondary" onClick={reload}>
           <Icon name="refresh" /> Refresh
         </button>
+        {conn.state === "connected" && (
+          <button className="btn danger-outline" onClick={() => setConfirm("cut")}>
+            Cut off now
+          </button>
+        )}
+        {conn.manual && (
+          <button className="btn" onClick={() => setConfirm("reconnect")}>
+            Reconnect
+          </button>
+        )}
       </PageHeader>
+
+      {actionError && (
+        <p className="card neg" role="alert" style={{ marginBottom: 12 }}>
+          Could not update the customer: {actionError}
+        </p>
+      )}
 
       <SummaryGrid>
         <StatCard
           tone={conn.state === "connected" ? "pos" : undefined}
           label="Wi-Fi connection"
           value={conn.state === "connected" ? "Connected" : conn.state === "cutoff" ? "Cut off" : "No plan"}
-          sub={conn.state === "none" ? "No plan bought yet" : conn.state === "connected" ? "Plan still running" : "Plan has ended"}
+          sub={
+            conn.state === "none"
+              ? "No plan bought yet"
+              : conn.state === "connected"
+                ? "Plan still running"
+                : conn.manual
+                  ? "Cut off by you before the plan ended"
+                  : "Plan ended - a new purchase reconnects them"
+          }
         />
         <StatCard
           label={conn.state === "cutoff" ? "Was cut off on" : "Cut-off date & time"}
@@ -122,6 +162,27 @@ export default function CustomerPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirm === "cut"}
+        title={`Cut off ${customer.name}?`}
+        confirmLabel="Cut off now"
+        onConfirm={() => setStatus("Disabled")}
+        onCancel={() => setConfirm(null)}
+      >
+        This marks them as cut off in NetProfit right now. You still need to disconnect them on your Wi-Fi router. Buying a new plan
+        reconnects them automatically.
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirm === "reconnect"}
+        title={`Reconnect ${customer.name}?`}
+        confirmLabel="Reconnect"
+        tone="primary"
+        onConfirm={() => setStatus("Active")}
+        onCancel={() => setConfirm(null)}
+      >
+        This undoes the manual cut-off, so their status follows their plan again. Remember to turn their Wi-Fi back on in your router.
+      </ConfirmDialog>
     </>
   );
 }
