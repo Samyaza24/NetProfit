@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Customer, Device, OperationalExpense, Transaction
@@ -38,17 +38,37 @@ def process_transaction_sync(
             ).scalars()
         )
 
+        # Customers are matched by name (case-insensitive) so two phones never create duplicates.
+        by_name = {
+            c.name.lower(): c
+            for c in db.execute(
+                select(Customer).where(
+                    func.lower(Customer.name).in_([c.name.lower() for c in payload.customers])
+                )
+            ).scalars()
+        }
+        remap: dict[str, str] = {}
+
         for c in payload.customers:
             incoming_updated = to_naive_utc(c.updated_at) if c.updated_at else utc_now()
             existing = existing_customers.get(c.id)
+            twin = by_name.get(c.name.lower())
             if existing is None:
+                if twin is not None:
+                    # Same name under another id: fold into it and tell the phone to follow.
+                    remap[c.id] = twin.id
+                    existing_customers[c.id] = twin
+                    continue
                 new_customer = Customer(
                     id=c.id, name=c.name, status=c.status, updated_at=incoming_updated
                 )
                 db.add(new_customer)
                 db.flush()  # acquire the row now so later rows in this payload can reference it
                 existing_customers[c.id] = new_customer
+                by_name[c.name.lower()] = new_customer
                 counts.customers += 1
+            elif twin is not None and twin.id != existing.id:
+                continue  # renaming onto a name another customer already has is ignored
             elif incoming_updated > existing.updated_at:
                 existing.name = c.name
                 existing.status = c.status
@@ -70,7 +90,7 @@ def process_transaction_sync(
                 continue
             new_txn = Transaction(
                 id=t.id,
-                customer_id=t.customer_id,
+                customer_id=remap.get(t.customer_id, t.customer_id),
                 device_id=device.id,
                 amount_received=t.amount_received,
                 duration_days=t.duration_days,
@@ -102,7 +122,7 @@ def process_transaction_sync(
         db.rollback()
         raise
 
-    return SyncPushResponse(accepted=counts, server_time=utc_now())
+    return SyncPushResponse(accepted=counts, customer_remap=remap, server_time=utc_now())
 
 
 def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:

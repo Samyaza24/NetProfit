@@ -24,6 +24,8 @@ class SyncPushCounts(BaseModel):
 
 class SyncPushResponse(BaseModel):
     accepted: SyncPushCounts
+    # Pushed customer id -> existing customer id, when the name already existed under another id.
+    customer_remap: dict[str, str] = {}
     server_time: datetime
 
 

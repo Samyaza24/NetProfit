@@ -77,6 +77,52 @@ def test_paid_never_reverts_to_unpaid(client, auth):
     assert client.get(SYNC, headers=auth).json()["transactions"][0]["status"] == "Paid"
 
 
+def test_duplicate_name_from_second_device_is_merged(client, auth):
+    other = {"X-NetProfit-Key": pair(client, "phone-2")["token"]}
+    first, second = new_id(), new_id()
+    client.post(SYNC, json={"customers": [{"id": first, "name": "Ana"}]}, headers=other)
+
+    payload = {"customers": [{"id": second, "name": "ana"}], "transactions": [txn(second)]}
+    res = client.post(SYNC, json=payload, headers=auth)
+    assert res.status_code == 200
+    assert res.json()["customer_remap"] == {second: first}
+    assert res.json()["accepted"]["customers"] == 0
+
+    assert len(client.get("/api/v1/customers").json()) == 1
+    pulled = client.get(SYNC, headers=auth).json()
+    assert [t["customer_id"] for t in pulled["transactions"]] == [first]
+
+    # A retry (for example after the phone crashed before applying the remap) is harmless.
+    again = client.post(SYNC, json=payload, headers=auth)
+    assert again.status_code == 200
+    assert again.json()["customer_remap"] == {second: first}
+    assert len(client.get(SYNC, headers=auth).json()["transactions"]) == 1
+
+
+def test_duplicate_names_within_one_push_are_merged(client, auth):
+    a, b = new_id(), new_id()
+    payload = {
+        "customers": [{"id": a, "name": "Ben"}, {"id": b, "name": "BEN"}],
+        "transactions": [txn(b)],
+    }
+    res = client.post(SYNC, json=payload, headers=auth)
+    assert res.status_code == 200
+    assert res.json()["customer_remap"] == {b: a}
+    assert len(client.get("/api/v1/customers").json()) == 1
+
+
+def test_rename_onto_existing_name_is_ignored(client, auth):
+    a, b = new_id(), new_id()
+    client.post(SYNC, json={"customers": [{"id": a, "name": "Ana"}, {"id": b, "name": "Ben"}]}, headers=auth)
+    res = client.post(
+        SYNC,
+        json={"customers": [{"id": b, "name": "ana", "updated_at": "2099-01-01T00:00:00"}]},
+        headers=auth,
+    )
+    assert res.status_code == 200
+    assert client.get(f"/api/v1/customers/{b}").json()["name"] == "Ben"
+
+
 def test_push_is_idempotent(client, auth):
     cid = new_id()
     # Mobile clients always send updated_at; without it the server stamps "now" on every push.
