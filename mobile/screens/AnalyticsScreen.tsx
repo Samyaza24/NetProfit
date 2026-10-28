@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { getTotals, Totals } from "../db/repo";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { DayTotal, getDailyReceived, getTotals, Totals } from "../db/repo";
+import { Card } from "../ui/components";
+import { colors, formatPHP, radius, space, type } from "../ui/theme";
 
 function startOfToday(): string {
   const d = new Date();
@@ -18,42 +20,71 @@ const PERIODS: [string, () => string | null][] = [
   ["All time", () => null],
 ];
 
-const php = (n: number) => `${n.toFixed(2)} PHP`;
+const BAR_AREA = 100;
 
 export default function AnalyticsScreen() {
-  const [totals, setTotals] = useState<Totals[]>([]);
+  const [totals, setTotals] = useState<Totals[] | null>(null);
+  const [daily, setDaily] = useState<DayTotal[]>([]);
 
   useEffect(() => {
     Promise.all(PERIODS.map(([, since]) => getTotals(since()))).then(setTotals);
+    getDailyReceived(7).then(setDaily);
   }, []);
 
+  if (!totals) return <ActivityIndicator style={s.loading} color={colors.primary} />;
+
+  const max = Math.max(1, ...daily.map((d) => d.amount));
+
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={s.container}>
       {PERIODS.map(([label], i) => {
         const t = totals[i];
-        if (!t) return null;
         const net = t.received - t.expenses;
         return (
-          <View key={label} style={styles.card}>
-            <Text style={styles.title}>{label}</Text>
-            <Text>Received: {php(t.received)}</Text>
-            <Text>Expenses: {php(t.expenses)}</Text>
-            <Text style={[styles.net, net < 0 && styles.loss]}>Net profit: {php(net)}</Text>
-            {t.unpaid > 0 && <Text style={styles.unpaid}>Unpaid: {php(t.unpaid)}</Text>}
-          </View>
+          <Card key={label}>
+            <Text style={s.title}>{label}</Text>
+            <Text style={s.line}>Received: {formatPHP(t.received)}</Text>
+            <Text style={s.line}>Expenses: {formatPHP(t.expenses)}</Text>
+            <Text style={[s.net, net < 0 && s.loss]}>Net profit: {formatPHP(net)}</Text>
+            {t.unpaid > 0 && <Text style={s.loss}>Unpaid: {formatPHP(t.unpaid)}</Text>}
+          </Card>
         );
       })}
-      <Text style={styles.note}>Based on data on this phone. Sync first for the latest totals.</Text>
-    </View>
+
+      <Card>
+        <Text style={s.title}>Last 7 days (received)</Text>
+        <View style={s.chart}>
+          {daily.map((d) => (
+            <View
+              key={d.date.toISOString()}
+              style={s.col}
+              accessible
+              accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
+            >
+              <Text style={s.value}>{d.amount > 0 ? Math.round(d.amount) : ""}</Text>
+              <View style={[s.bar, { height: Math.max(2, (d.amount / max) * BAR_AREA) }]} />
+              <Text style={s.day}>{d.date.toLocaleDateString("en-US", { weekday: "short" })}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Text style={s.note}>Based on data on this phone. Sync first for the latest totals.</Text>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 12 },
-  card: { padding: 14, borderRadius: 8, backgroundColor: "#f5f5f5", gap: 2 },
-  title: { fontWeight: "bold", fontSize: 16, marginBottom: 4 },
-  net: { fontWeight: "700", color: "#1b7f3b", marginTop: 4 },
-  loss: { color: "#b00020" },
-  unpaid: { color: "#b00020" },
-  note: { color: "#666", fontSize: 12 },
+const s = StyleSheet.create({
+  loading: { marginTop: space.xl },
+  container: { padding: space.lg, gap: space.md },
+  title: { fontSize: type.title, fontWeight: "700", color: colors.text, marginBottom: space.xs },
+  line: { fontSize: type.body, color: colors.text },
+  net: { fontSize: type.body, fontWeight: "700", color: colors.success, marginTop: space.xs },
+  loss: { color: colors.danger, fontSize: type.body },
+  chart: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: space.sm },
+  col: { flex: 1, alignItems: "center", justifyContent: "flex-end", gap: space.xs },
+  bar: { width: "60%", backgroundColor: colors.primary, borderRadius: radius.sm },
+  value: { fontSize: 11, color: colors.muted, height: 14 },
+  day: { fontSize: 11, color: colors.muted },
+  note: { color: colors.muted, fontSize: type.small },
 });

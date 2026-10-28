@@ -269,6 +269,39 @@ export async function listCustomerTransactions(customerId: string): Promise<Tran
   );
 }
 
+// Server-pulled timestamps are naive UTC (no Z); treat them as UTC like the phone's own.
+export function parseTs(s: string): Date {
+  return new Date(/Z$|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}Z`);
+}
+
+export interface DayTotal {
+  date: Date;
+  amount: number;
+}
+
+// Paid amount per local day for the last `days` days, oldest first.
+export async function getDailyReceived(days = 7): Promise<DayTotal[]> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (days - 1));
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ timestamp: string; amount_received: number }>(
+    "SELECT timestamp, amount_received FROM transactions WHERE status = 'Paid' AND timestamp >= ?",
+    new Date(start.getTime() - 86_400_000).toISOString()
+  );
+  const out: DayTotal[] = Array.from({ length: days }, (_, i) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i);
+    return { date, amount: 0 };
+  });
+  for (const r of rows) {
+    const t = parseTs(r.timestamp);
+    const idx = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime() - start.getTime()) / 86_400_000);
+    if (idx >= 0 && idx < days) out[idx].amount += r.amount_received;
+  }
+  return out;
+}
+
 export interface Totals {
   received: number;
   unpaid: number;
