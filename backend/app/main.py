@@ -18,7 +18,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="NetProfit API", lifespan=lifespan)
+# Interactive docs are disabled so the API schema is not browsable from the LAN.
+app = FastAPI(title="NetProfit API", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 app.add_middleware(
     CORSMiddleware,

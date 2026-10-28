@@ -39,3 +39,8 @@ def test_console_rejects_cross_site_write(client):
     assert client.post("/api/v1/devices/pairing-code", headers=evil).status_code == 403
     ok = {"Origin": "http://localhost:3000"}
     assert client.post("/api/v1/devices/pairing-code", headers=ok).status_code == 201
+
+
+def test_api_docs_disabled(lan_client):
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert lan_client.get(path).status_code == 404
