@@ -7,6 +7,7 @@ import { ErrorState } from "./ui/components";
 import ErrorBoundary from "./ui/ErrorBoundary";
 import PairScreen from "./screens/PairScreen";
 import RecordScreen from "./screens/RecordScreen";
+import { Prefill } from "./screens/TransactionScreen";
 import CustomersScreen from "./screens/CustomersScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import SyncTab from "./screens/SyncTab";
@@ -46,6 +47,7 @@ function AppRoot() {
   const [visited, setVisited] = useState<Set<Screen>>(new Set(["record"]));
   const [keyboardUp, setKeyboardUp] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
 
   const start = useCallback(() => {
     setStartError(null);
@@ -110,8 +112,18 @@ function AppRoot() {
 
   const tab = (key: Screen) => {
     const active = screen === key;
-    if (key === "record") return <RecordScreen />;
-    if (key === "customers") return <CustomersScreen active={active} />;
+    if (key === "record") return <RecordScreen prefill={prefill} />;
+    if (key === "customers") {
+      return (
+        <CustomersScreen
+          active={active}
+          onSellAgain={(name, days) => {
+            setPrefill({ name, days, nonce: Date.now() });
+            go("record");
+          }}
+        />
+      );
+    }
     if (key === "analytics") return <AnalyticsScreen active={active} />;
     return <SyncTab active={active} onNeedsRePair={() => setPaired(false)} />;
   };

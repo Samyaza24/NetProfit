@@ -14,7 +14,7 @@ const load = async () => {
   return { rows, conns };
 };
 
-export default function CustomersScreen({ active = true }: { active?: boolean }) {
+export default function CustomersScreen({ active = true, onSellAgain }: { active?: boolean; onSellAgain?: (name: string, days: number) => void }) {
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
   const [connFilter, setConnFilter] = useState<"all" | "connected" | "cutoff">("all");
@@ -36,7 +36,22 @@ export default function CustomersScreen({ active = true }: { active?: boolean })
     return () => sub.remove();
   }, [selected]);
 
-  if (selected) return <CustomerDetailScreen customer={selected} onBack={() => setSelected(null)} />;
+  if (selected) {
+    return (
+      <CustomerDetailScreen
+        customer={selected}
+        onBack={() => setSelected(null)}
+        onSellAgain={
+          onSellAgain
+            ? (days) => {
+                setSelected(null);
+                onSellAgain(selected.name, days);
+              }
+            : undefined
+        }
+      />
+    );
+  }
   if (error && !rows) return <ErrorState message={error} onRetry={reload} />;
   if (!rows) return <ActivityIndicator style={s.loading} color={colors.primary} />;
 

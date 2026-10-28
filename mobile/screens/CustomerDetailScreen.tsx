@@ -11,9 +11,11 @@ import { useLoad } from "../ui/useLoad";
 interface Props {
   customer: CustomerSummary;
   onBack: () => void;
+  // Opens the sale form with this client and the given plan (days) filled in.
+  onSellAgain?: (days: number) => void;
 }
 
-export default function CustomerDetailScreen({ customer, onBack }: Props) {
+export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: Props) {
   const fetchData = useCallback(async () => {
     const [rows, c] = await Promise.all([listCustomerTransactions(customer.id), getCustomer(customer.id)]);
     return { rows, manualAt: c?.status === "Disabled" ? parseTs(c.updated_at).getTime() : null };
@@ -89,6 +91,9 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
         <Text style={s.line}>Total spent: {formatPHP(paid)}</Text>
         {owes > 0 && <Text style={s.debt}>Owes {formatPHP(owes)}</Text>}
       </Card>
+      {onSellAgain && rows.length > 0 && (
+        <Button title={`Sell again - ${tierName(rows[0].duration_days)}`} icon="add-circle-outline" onPress={() => onSellAgain(rows[0].duration_days)} />
+      )}
       {conn.state === "connected" && <Button title="Cut off now" icon="close-circle-outline" variant="secondary" onPress={() => changeStatus("Disabled")} />}
       {conn.manual && <Button title="Reconnect" icon="checkmark-circle-outline" onPress={() => changeStatus("Active")} />}
       {conn.state === "cutoff" && !conn.manual && <Text style={s.muted}>The plan has ended. Buying a new plan reconnects them.</Text>}

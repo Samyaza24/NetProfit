@@ -72,6 +72,25 @@ export async function listRecentDescriptions(limit = 5): Promise<string[]> {
   return rows.map((r) => r.description);
 }
 
+export interface RecentCustomer {
+  name: string;
+  last_days: number;
+}
+
+// The clients bought from most recently, each with the plan they last took, for one-tap re-selling.
+export async function listRecentCustomers(limit = 5): Promise<RecentCustomer[]> {
+  const db = await getDb();
+  return db.getAllAsync<RecentCustomer>(
+    `SELECT c.name AS name,
+            (SELECT t2.duration_days FROM transactions t2 WHERE t2.customer_id = c.id ORDER BY t2.timestamp DESC LIMIT 1) AS last_days
+     FROM customers c JOIN transactions t ON t.customer_id = c.id
+     GROUP BY c.id
+     ORDER BY MAX(t.timestamp) DESC
+     LIMIT ?`,
+    limit
+  );
+}
+
 export async function createLocalCustomer(name: string): Promise<Customer> {
   const db = await getDb();
   const customer: Customer = {

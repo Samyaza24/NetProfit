@@ -7,8 +7,11 @@ import {
   Customer,
   findCustomerByName,
   hasRecentTransaction,
+  listRecentCustomers,
+  RecentCustomer,
   searchCustomers,
 } from "../db/repo";
+import { onDataChange } from "../db/events";
 import { getMeta, setMeta } from "../db/schema";
 import { Badge, Button, Chip, Segmented } from "../ui/components";
 import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
@@ -23,8 +26,16 @@ const TIERS: { label: string; days: number; amount: number }[] = [
 
 type Status = "Paid" | "Unpaid";
 
-export default function TransactionScreen() {
+// Asks the form to start with this client and plan; a new nonce means "apply it again".
+export interface Prefill {
+  name: string;
+  days: number;
+  nonce: number;
+}
+
+export default function TransactionScreen({ prefill }: { prefill?: Prefill | null }) {
   const [name, setName] = useState("");
+  const [recent, setRecent] = useState<RecentCustomer[]>([]);
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [existing, setExisting] = useState<Customer | null>(null);
   const [tier, setTier] = useState(TIERS[0]);
@@ -41,6 +52,21 @@ export default function TransactionScreen() {
       const last = TIERS.find((t) => String(t.days) === d);
       if (last) setTier(last);
     });
+  }, []);
+
+  // "Sell again" from a client's page arrives here with the client and their last plan.
+  useEffect(() => {
+    if (!prefill) return;
+    setName(prefill.name);
+    const plan = TIERS.find((t) => t.days === prefill.days);
+    if (plan) setTier(plan);
+  }, [prefill]);
+
+  // Most recent clients, refreshed whenever local data changes.
+  useEffect(() => {
+    const load = () => listRecentCustomers(5).then(setRecent, () => undefined);
+    load();
+    return onDataChange(load);
   }, []);
 
   // Any change to the form clears the "save again?" warning and the last error.
@@ -125,6 +151,25 @@ export default function TransactionScreen() {
         onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Customer name"
       />
+      {name.trim() === "" && recent.length > 0 && (
+        <>
+          <Text style={s.label}>Recent</Text>
+          <View style={s.row}>
+            {recent.map((r) => (
+              <Chip
+                key={r.name}
+                label={r.name}
+                selected={false}
+                onPress={() => {
+                  setName(r.name);
+                  const plan = TIERS.find((t) => t.days === r.last_days);
+                  if (plan) setTier(plan);
+                }}
+              />
+            ))}
+          </View>
+        </>
+      )}
       {isNew && <Badge label="New client" color={colors.warning} />}
       {others.length > 0 && name.trim() !== "" && (
         <View style={s.row}>
