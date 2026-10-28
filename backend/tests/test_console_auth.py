@@ -8,6 +8,7 @@ CONSOLE = [
     ("get", "/api/v1/devices"),
     ("post", "/api/v1/devices/pairing-code"),
     ("post", "/api/v1/devices/some-id/revoke"),
+    ("post", "/api/v1/reset"),
 ]
 
 

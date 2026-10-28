@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Customer, Device, OperationalExpense, Transaction
 from app.schemas.sync import SyncPullResponse, SyncPushCounts, SyncPushRequest, SyncPushResponse
+from app.services.reset_service import get_epoch
 from app.services.timeutil import to_naive_utc, utc_now
 
 
@@ -13,6 +14,11 @@ def process_transaction_sync(
     db: Session, device: Device, payload: SyncPushRequest
 ) -> SyncPushResponse:
     counts = SyncPushCounts(customers=0, transactions=0, expenses=0)
+
+    # A phone holding data from before a reset must not push it back: tell it to start fresh instead.
+    epoch = get_epoch(db)
+    if payload.data_epoch is not None and payload.data_epoch != epoch:
+        raise HTTPException(status_code=409, detail={"code": "data_reset", "data_epoch": epoch})
 
     # The session already has an ambient (autobegun) transaction by the time this runs
     # (require_device's lookup started one), so atomicity is via commit/rollback, not db.begin().
@@ -122,7 +128,7 @@ def process_transaction_sync(
         db.rollback()
         raise
 
-    return SyncPushResponse(accepted=counts, customer_remap=remap, server_time=utc_now())
+    return SyncPushResponse(accepted=counts, customer_remap=remap, data_epoch=epoch, server_time=utc_now())
 
 
 def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:
@@ -140,5 +146,6 @@ def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:
         customers=list(db.execute(customers_q).scalars().all()),
         transactions=list(db.execute(transactions_q).scalars().all()),
         expenses=list(db.execute(expenses_q).scalars().all()),
+        data_epoch=get_epoch(db),
         server_time=server_time,
     )
