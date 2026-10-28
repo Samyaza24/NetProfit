@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ReactNode, useRef } from "react";
+import { ActivityIndicator, Animated, Pressable, PressableProps, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import Icon, { IconName } from "./Icon";
 import { colors, radius, shadow, space, TOUCH, type } from "./theme";
+import { useReducedMotion } from "./useReducedMotion";
 
 interface ButtonProps {
   title: string;
@@ -12,21 +13,45 @@ interface ButtonProps {
   icon?: IconName;
 }
 
+interface ScaleProps extends Omit<PressableProps, "children" | "style"> {
+  contentStyle: StyleProp<ViewStyle>;
+  children: ReactNode;
+}
+
+// Pressable whose visual content shrinks slightly while pressed.
+function ScalePressable({ contentStyle, children, onPressIn, onPressOut, ...rest }: ScaleProps) {
+  const reduced = useReducedMotion();
+  const scale = useRef(new Animated.Value(1)).current;
+  const to = (v: number) => {
+    if (!reduced) Animated.timing(scale, { toValue: v, duration: 90, useNativeDriver: true }).start();
+  };
+  return (
+    <Pressable
+      {...rest}
+      onPressIn={(e) => {
+        to(0.97);
+        onPressIn?.(e);
+      }}
+      onPressOut={(e) => {
+        to(1);
+        onPressOut?.(e);
+      }}
+    >
+      <Animated.View style={[contentStyle, { transform: [{ scale }] }]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+
 export function Button({ title, onPress, variant = "primary", disabled, loading, icon }: ButtonProps) {
   const primary = variant === "primary";
   return (
-    <Pressable
+    <ScalePressable
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!disabled || !!loading }}
       disabled={disabled || loading}
       onPress={onPress}
-      style={({ pressed }) => [
-        s.button,
-        primary ? s.buttonPrimary : s.buttonSecondary,
-        (disabled || loading) && s.disabled,
-        pressed && s.pressed,
-      ]}
+      contentStyle={[s.button, primary ? s.buttonPrimary : s.buttonSecondary, (disabled || loading) && s.disabled]}
     >
       {loading ? (
         <ActivityIndicator color={primary ? colors.primaryText : colors.primary} />
@@ -36,7 +61,7 @@ export function Button({ title, onPress, variant = "primary", disabled, loading,
           <Text style={[s.buttonText, !primary && { color: colors.primary }]}>{title}</Text>
         </View>
       )}
-    </Pressable>
+    </ScalePressable>
   );
 }
 
@@ -52,14 +77,14 @@ interface ChipProps {
 
 export function Chip({ label, selected, onPress }: ChipProps) {
   return (
-    <Pressable
+    <ScalePressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[s.chip, selected && s.chipSelected]}
+      contentStyle={[s.chip, selected && s.chipSelected]}
     >
       <Text style={[s.chipText, selected && { color: colors.primaryText }]}>{label}</Text>
-    </Pressable>
+    </ScalePressable>
   );
 }
 
@@ -110,7 +135,6 @@ const s = StyleSheet.create({
   buttonSecondary: { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.primary },
   buttonText: { color: colors.primaryText, fontSize: type.body, fontWeight: "700" },
   disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.85 },
   card: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, gap: space.xs, ...shadow },
   chip: { minHeight: TOUCH, minWidth: TOUCH, paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },

@@ -1,29 +1,55 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text } from "react-native";
 import { colors, radius, space, type } from "./theme";
+import { useReducedMotion } from "./useReducedMotion";
+
+function ToastView({ message, ms }: { message: string; ms: number }) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+
+  // Slides in, holds, then fades out just before the hook removes it.
+  useEffect(() => {
+    if (reduced) {
+      v.setValue(1);
+      return;
+    }
+    const ease = Easing.out(Easing.cubic);
+    const anim = Animated.sequence([
+      Animated.timing(v, { toValue: 1, duration: 200, easing: ease, useNativeDriver: true }),
+      Animated.delay(Math.max(0, ms - 450)),
+      Animated.timing(v, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [reduced, ms, v]);
+
+  return (
+    <Animated.View
+      accessibilityLiveRegion="polite"
+      style={[s.toast, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}
+    >
+      <Text style={s.text}>{message}</Text>
+    </Animated.View>
+  );
+}
 
 // Returns a node to render near the bottom of a screen and a function that shows a message briefly.
 export function useToast(ms = 2500) {
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const show = useCallback(
-    (text: string) => {
+    (message: string) => {
       clearTimeout(timer.current);
-      setMessage(text);
-      timer.current = setTimeout(() => setMessage(null), ms);
+      setToast((t) => ({ id: (t?.id ?? 0) + 1, message }));
+      timer.current = setTimeout(() => setToast(null), ms);
     },
     [ms]
   );
 
-  const node = message ? (
-    <View style={s.toast} accessibilityLiveRegion="polite">
-      <Text style={s.text}>{message}</Text>
-    </View>
-  ) : null;
-
+  const node = toast ? <ToastView key={toast.id} message={toast.message} ms={ms} /> : null;
   return [node, show] as const;
 }
 

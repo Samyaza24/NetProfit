@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { countUnsynced } from "../db/repo";
 import Icon from "./Icon";
 import Logo from "./Logo";
 import { colors, space, type } from "./theme";
+import { useReducedMotion } from "./useReducedMotion";
 
 // Brand plus always-visible sync state; polls the local count since writes happen on many screens.
 export default function StatusStrip({ onPress }: { onPress: () => void }) {
   const [pending, setPending] = useState(0);
+  const reduced = useReducedMotion();
+  const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const load = () => countUnsynced().then(setPending);
@@ -15,6 +18,22 @@ export default function StatusStrip({ onPress }: { onPress: () => void }) {
     const id = setInterval(load, 3000);
     return () => clearInterval(id);
   }, []);
+
+  // Gentle pulse only while something is waiting to sync.
+  useEffect(() => {
+    if (!pending || reduced) {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pending, reduced, pulse]);
 
   const color = pending ? colors.warning : colors.success;
   const label = pending ? `${pending} pending` : "All synced";
@@ -28,7 +47,9 @@ export default function StatusStrip({ onPress }: { onPress: () => void }) {
         onPress={onPress}
         style={s.status}
       >
-        <Icon name={pending ? "cloud-upload-outline" : "cloud-done-outline"} size={20} color={color} />
+        <Animated.View style={{ opacity: pulse }}>
+          <Icon name={pending ? "cloud-upload-outline" : "cloud-done-outline"} size={20} color={color} />
+        </Animated.View>
         <Text style={[s.text, { color }]}>{label}</Text>
       </Pressable>
     </View>

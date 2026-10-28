@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import { Expense, listRecentExpenses, listRecentTransactions, parseTs, Transaction } from "../db/repo";
 import { Badge, EmptyState } from "../ui/components";
+import FadeIn from "../ui/FadeIn";
 import { colors, formatPHP, space, type } from "../ui/theme";
 
 type Entry =
@@ -37,8 +38,8 @@ export default function HistoryScreen() {
       data={entries}
       keyExtractor={(e) => `${e.kind}-${e.id}`}
       ListEmptyComponent={<EmptyState icon="time-outline" text="Nothing recorded yet." />}
-      renderItem={({ item }) => (
-        <View style={s.row}>
+      renderItem={({ item, index }) => (
+        <FadeIn delay={Math.min(index, 8) * 40} style={s.row}>
           <View style={s.main}>
             <Text style={s.title}>{item.title}</Text>
             <Text style={s.muted}>
@@ -55,7 +56,7 @@ export default function HistoryScreen() {
               <Badge label={item.status} color={item.status === "Paid" ? colors.success : colors.danger} />
             )}
           </View>
-        </View>
+        </FadeIn>
       )}
     />
   );

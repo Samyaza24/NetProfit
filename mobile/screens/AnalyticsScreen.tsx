@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Easing, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { DayTotal, getDailyReceived, getTotals, Totals } from "../db/repo";
 import { Card } from "../ui/components";
+import CountUp from "../ui/CountUp";
 import { colors, formatPHP, radius, space, type } from "../ui/theme";
+import { useReducedMotion } from "../ui/useReducedMotion";
 
 function startOfToday(): string {
   const d = new Date();
@@ -21,6 +23,22 @@ const PERIODS: [string, () => string | null][] = [
 ];
 
 const BAR_AREA = 100;
+
+// Bar that grows up from its baseline on mount.
+function GrowBar({ height, style }: { height: number; style: StyleProp<ViewStyle> }) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (reduced) {
+      v.setValue(1);
+      return;
+    }
+    Animated.timing(v, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [reduced, v]);
+
+  return <Animated.View style={[style, { height, transformOrigin: "bottom", transform: [{ scaleY: v }] }]} />;
+}
 
 export default function AnalyticsScreen() {
   const [totals, setTotals] = useState<Totals[] | null>(null);
@@ -41,7 +59,7 @@ export default function AnalyticsScreen() {
     <ScrollView contentContainerStyle={s.container}>
       <View style={[s.hero, monthNet < 0 && s.heroLoss]}>
         <Text style={s.heroLabel}>Net profit this month</Text>
-        <Text style={s.heroValue}>{formatPHP(monthNet)}</Text>
+        <CountUp value={monthNet} style={s.heroValue} />
         <Text style={s.heroSub}>
           {formatPHP(month.received)} received - {formatPHP(month.expenses)} expenses
         </Text>
@@ -73,7 +91,7 @@ export default function AnalyticsScreen() {
               accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
             >
               <Text style={s.value}>{d.amount > 0 ? Math.round(d.amount) : ""}</Text>
-              <View style={[s.bar, { height: Math.max(2, (d.amount / max) * BAR_AREA) }]} />
+              <GrowBar height={Math.max(2, (d.amount / max) * BAR_AREA)} style={s.bar} />
               <Text style={s.day}>{d.date.toLocaleDateString("en-US", { weekday: "short" })}</Text>
             </View>
           ))}

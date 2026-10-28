@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { CustomerSummary, listCustomerSummaries } from "../db/repo";
 import { Badge, Chip, EmptyState } from "../ui/components";
+import FadeIn from "../ui/FadeIn";
 import Icon from "../ui/Icon";
 import { colors, formatPHP, radius, shadow, space, TOUCH, type } from "../ui/theme";
 import CustomerDetailScreen from "./CustomerDetailScreen";
@@ -48,25 +49,27 @@ export default function CustomersScreen() {
         ListEmptyComponent={
           <EmptyState icon="people-outline" text={owesOnly ? "Nobody owes anything." : "No customers yet."} />
         }
-        renderItem={({ item }) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${item.name}, ${item.total_visits} visits`}
-            onPress={() => setSelected(item)}
-            style={({ pressed }) => [s.card, pressed && s.pressed]}
-          >
-            <View style={s.avatar}>
-              <Text style={s.initial}>{item.name.trim().charAt(0).toUpperCase()}</Text>
-            </View>
-            <View style={s.main}>
-              <Text style={s.name}>{item.name}</Text>
-              <Text style={s.muted}>
-                {item.total_visits} visits - paid {formatPHP(item.lifetime_value)}
-              </Text>
-            </View>
-            {item.outstanding_debt > 0 && <Badge label={`Owes ${formatPHP(item.outstanding_debt)}`} />}
-            <Icon name="chevron-forward" size={20} color={colors.muted} />
-          </Pressable>
+        renderItem={({ item, index }) => (
+          <FadeIn delay={Math.min(index, 8) * 40}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name}, ${item.total_visits} visits`}
+              onPress={() => setSelected(item)}
+              style={({ pressed }) => [s.card, pressed && s.pressed]}
+            >
+              <View style={s.avatar}>
+                <Text style={s.initial}>{item.name.trim().charAt(0).toUpperCase()}</Text>
+              </View>
+              <View style={s.main}>
+                <Text style={s.name}>{item.name}</Text>
+                <Text style={s.muted}>
+                  {item.total_visits} visits - paid {formatPHP(item.lifetime_value)}
+                </Text>
+              </View>
+              {item.outstanding_debt > 0 && <Badge label={`Owes ${formatPHP(item.outstanding_debt)}`} />}
+              <Icon name="chevron-forward" size={20} color={colors.muted} />
+            </Pressable>
+          </FadeIn>
         )}
       />
     </View>

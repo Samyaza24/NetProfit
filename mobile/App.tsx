@@ -6,6 +6,7 @@ import RecordScreen from "./screens/RecordScreen";
 import CustomersScreen from "./screens/CustomersScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import SyncTab from "./screens/SyncTab";
+import FadeIn from "./ui/FadeIn";
 import StatusStrip from "./ui/StatusStrip";
 import TabBar from "./ui/TabBar";
 import { colors } from "./ui/theme";
@@ -53,12 +54,12 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusStrip onPress={() => setScreen("sync")} />
-      <View style={styles.body}>
+      <FadeIn key={screen} style={styles.body}>
         {screen === "record" && <RecordScreen />}
         {screen === "customers" && <CustomersScreen />}
         {screen === "analytics" && <AnalyticsScreen />}
         {screen === "sync" && <SyncTab onNeedsRePair={() => setPaired(false)} />}
-      </View>
+      </FadeIn>
       {!keyboardUp && <TabBar tabs={TABS} active={screen} onChange={setScreen} />}
       <StatusBar style="auto" />
     </SafeAreaView>
