@@ -34,10 +34,21 @@ export default function AnalyticsScreen() {
   if (!totals) return <ActivityIndicator style={s.loading} color={colors.primary} />;
 
   const max = Math.max(1, ...daily.map((d) => d.amount));
+  const month = totals[1];
+  const monthNet = month.received - month.expenses;
 
   return (
     <ScrollView contentContainerStyle={s.container}>
+      <View style={[s.hero, monthNet < 0 && s.heroLoss]}>
+        <Text style={s.heroLabel}>Net profit this month</Text>
+        <Text style={s.heroValue}>{formatPHP(monthNet)}</Text>
+        <Text style={s.heroSub}>
+          {formatPHP(month.received)} received - {formatPHP(month.expenses)} expenses
+        </Text>
+      </View>
+
       {PERIODS.map(([label], i) => {
+        if (i === 1) return null;
         const t = totals[i];
         const net = t.received - t.expenses;
         return (
@@ -83,7 +94,12 @@ const s = StyleSheet.create({
   loss: { color: colors.danger, fontSize: type.body },
   chart: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: space.sm },
   col: { flex: 1, alignItems: "center", justifyContent: "flex-end", gap: space.xs },
-  bar: { width: "60%", backgroundColor: colors.primary, borderRadius: radius.sm },
+  hero: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.success, gap: space.xs },
+  heroLoss: { backgroundColor: colors.danger },
+  heroLabel: { fontSize: type.small, fontWeight: "700", color: colors.primaryText, textTransform: "uppercase" },
+  heroValue: { fontSize: 34, fontWeight: "800", color: colors.primaryText },
+  heroSub: { fontSize: type.small, color: colors.primaryText },
+  bar: { width: "60%", backgroundColor: colors.accent, borderRadius: radius.sm },
   value: { fontSize: 11, color: colors.muted, height: 14 },
   day: { fontSize: 11, color: colors.muted },
   note: { color: colors.muted, fontSize: type.small },

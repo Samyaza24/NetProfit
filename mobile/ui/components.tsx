@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Icon, { IconName } from "./Icon";
-import { colors, radius, space, TOUCH, type } from "./theme";
+import { colors, radius, shadow, space, TOUCH, type } from "./theme";
 
 interface ButtonProps {
   title: string;
@@ -111,7 +111,7 @@ const s = StyleSheet.create({
   buttonText: { color: colors.primaryText, fontSize: type.body, fontWeight: "700" },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.85 },
-  card: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.surface, gap: space.xs },
+  card: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, gap: space.xs, ...shadow },
   chip: { minHeight: TOUCH, minWidth: TOUCH, paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: type.body, fontWeight: "600", color: colors.text },

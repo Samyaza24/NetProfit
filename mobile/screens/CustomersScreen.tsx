@@ -3,7 +3,7 @@ import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, Text, 
 import { CustomerSummary, listCustomerSummaries } from "../db/repo";
 import { Badge, Chip, EmptyState } from "../ui/components";
 import Icon from "../ui/Icon";
-import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
+import { colors, formatPHP, radius, shadow, space, TOUCH, type } from "../ui/theme";
 import CustomerDetailScreen from "./CustomerDetailScreen";
 
 export default function CustomersScreen() {
@@ -55,6 +55,9 @@ export default function CustomersScreen() {
             onPress={() => setSelected(item)}
             style={({ pressed }) => [s.card, pressed && s.pressed]}
           >
+            <View style={s.avatar}>
+              <Text style={s.initial}>{item.name.trim().charAt(0).toUpperCase()}</Text>
+            </View>
             <View style={s.main}>
               <Text style={s.name}>{item.name}</Text>
               <Text style={s.muted}>
@@ -76,8 +79,10 @@ const s = StyleSheet.create({
   search: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
   filters: { flexDirection: "row", alignItems: "center", gap: space.md },
   count: { color: colors.muted },
-  card: { minHeight: TOUCH, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.surface, marginBottom: space.sm },
+  card: { minHeight: TOUCH, flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md, borderRadius: radius.md, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, marginBottom: space.sm, ...shadow },
   pressed: { opacity: 0.8 },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  initial: { fontSize: type.title, fontWeight: "700", color: colors.primary },
   main: { flex: 1 },
   name: { fontSize: type.title, fontWeight: "700", color: colors.text },
   muted: { fontSize: type.small, color: colors.muted },
