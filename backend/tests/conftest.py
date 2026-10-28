@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 
 # Must be set before app modules import settings and build the engine.
-os.environ["DEVICE_TOKEN_SIGNING_KEY"] = "test-signing-key"
+os.environ["DEVICE_TOKEN_SIGNING_KEY"] = "test-signing-key-0123456789-abcdefghij"
 os.environ["DATABASE_PATH"] = str(Path(tempfile.mkdtemp()) / "test.db")
 
 import pytest  # noqa: E402
