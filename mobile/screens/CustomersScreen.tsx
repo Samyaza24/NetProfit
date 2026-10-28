@@ -16,10 +16,12 @@ export default function CustomersScreen() {
   const [connFilter, setConnFilter] = useState<"all" | "connected" | "cutoff">("all");
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
 
+  // Reload on open and every time the detail view closes, so a cut-off made there shows up in the list.
   useEffect(() => {
+    if (selected) return;
     listCustomerSummaries().then(setRows);
     listConnections().then(setConns);
-  }, []);
+  }, [selected]);
 
   // Android back closes the detail view instead of leaving the screen.
   useEffect(() => {
