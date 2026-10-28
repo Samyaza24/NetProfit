@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ElementRef, useEffect, useRef, useState } from "react";
+import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { createExpense, listRecentDescriptions } from "../db/repo";
 import { friendlyError } from "../lib/errors";
 import { Button, Chip } from "../ui/components";
@@ -13,6 +13,7 @@ export default function ExpenseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const busy = useRef(false);
+  const amountInput = useRef<ElementRef<typeof TextInput>>(null);
   const [toast, showToast] = useToast();
 
   useEffect(() => {
@@ -44,13 +45,18 @@ export default function ExpenseScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+    <View style={s.root}>
+    <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <Text style={s.label}>Description</Text>
       <TextInput
         style={s.input}
         value={description}
         onChangeText={setDescription}
         placeholder="Cable ties"
+        autoCorrect={false}
+        maxLength={100}
+        returnKeyType="next"
+        onSubmitEditing={() => amountInput.current?.focus()}
         accessibilityLabel="Expense description"
       />
       {recent.length > 0 && (
@@ -62,14 +68,16 @@ export default function ExpenseScreen() {
       )}
       <Text style={s.label}>Amount (PHP)</Text>
       <TextInput
+        ref={amountInput}
         style={s.input}
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
         placeholder="200"
+        returnKeyType="done"
+        onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Expense amount"
       />
-      {toast}
       {error && (
         <Text style={s.error} accessibilityRole="alert">
           {error}
@@ -77,11 +85,14 @@ export default function ExpenseScreen() {
       )}
       <Button title="Save expense" icon="checkmark" onPress={submit} loading={saving} />
     </ScrollView>
+    {toast}
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { padding: space.lg, gap: space.md },
+  root: { flex: 1 },
+  container: { padding: space.lg, paddingBottom: space.xl * 3, gap: space.md },
   label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },

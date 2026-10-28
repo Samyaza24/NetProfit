@@ -25,8 +25,8 @@ const load = async (): Promise<Entry[]> => {
   );
 };
 
-export default function HistoryScreen() {
-  const { data: entries, error, reload } = useLoad(load);
+export default function HistoryScreen({ active = true }: { active?: boolean }) {
+  const { data: entries, error, reload } = useLoad(load, active);
 
   if (error && !entries) return <ErrorState message={error} onRetry={reload} />;
   if (!entries) return <ActivityIndicator style={s.loading} color={colors.primary} />;

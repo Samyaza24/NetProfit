@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Keyboard, Platform, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, View } from "react-native";
+import { BackHandler, Keyboard, Platform, StyleSheet, View } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { friendlyError } from "./lib/errors";
 import { ErrorState } from "./ui/components";
@@ -26,15 +27,20 @@ const TABS: [Screen, string, string][] = [
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <AppRoot />
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <AppRoot />
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 
 function AppRoot() {
+  const insets = useSafeAreaInsets();
   const [paired, setPaired] = useState<boolean | null>(null);
   const [screen, setScreen] = useState<Screen>("record");
+  // Tabs are mounted the first time they are opened and then kept, so drafts, filters and scroll survive.
+  const [visited, setVisited] = useState<Set<Screen>>(new Set(["record"]));
   const [keyboardUp, setKeyboardUp] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -45,51 +51,81 @@ function AppRoot() {
 
   useEffect(start, [start]);
 
+  const go = useCallback((next: Screen) => {
+    setScreen(next);
+    setVisited((v) => (v.has(next) ? v : new Set(v).add(next)));
+  }, []);
+
   // Hide the tab bar while typing so it does not ride above the keyboard.
   useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardUp(true));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardUp(false));
+    const [showEvent, hideEvent] = Platform.OS === "ios" ? ["keyboardWillShow", "keyboardWillHide"] : ["keyboardDidShow", "keyboardDidHide"];
+    const show = Keyboard.addListener(showEvent as "keyboardDidShow", () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(hideEvent as "keyboardDidHide", () => setKeyboardUp(false));
     return () => {
       show.remove();
       hide.remove();
     };
   }, []);
 
+  // Android Back: from any other tab go to Record; on Record let the system leave the app.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (paired && screen !== "record") {
+        go("record");
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [paired, screen, go]);
+
+  const root = [styles.root, { paddingTop: insets.top }];
+
   if (startError) {
     return (
-      <View style={styles.root}>
+      <View style={root}>
         <ErrorState message={startError} onRetry={start} />
       </View>
     );
   }
 
-  if (paired === null) return <View style={styles.root} />;
+  if (paired === null) return <View style={root} />;
 
   if (!paired) {
     return (
-      <SafeAreaView style={styles.root}>
+      <View style={root}>
         <PairScreen onPaired={() => setPaired(true)} />
         <StatusBar style="auto" />
-      </SafeAreaView>
+      </View>
     );
   }
 
+  const tab = (key: Screen) => {
+    const active = screen === key;
+    if (key === "record") return <RecordScreen />;
+    if (key === "customers") return <CustomersScreen active={active} />;
+    if (key === "analytics") return <AnalyticsScreen active={active} />;
+    return <SyncTab active={active} onNeedsRePair={() => setPaired(false)} />;
+  };
+
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusStrip onPress={() => setScreen("sync")} />
-      <FadeIn key={screen} style={styles.body}>
-        {screen === "record" && <RecordScreen />}
-        {screen === "customers" && <CustomersScreen />}
-        {screen === "analytics" && <AnalyticsScreen />}
-        {screen === "sync" && <SyncTab onNeedsRePair={() => setPaired(false)} />}
-      </FadeIn>
-      {!keyboardUp && <TabBar tabs={TABS} active={screen} onChange={setScreen} />}
+    <View style={root}>
+      <StatusStrip onPress={() => go("sync")} />
+      {TABS.map(([key]) =>
+        visited.has(key) ? (
+          <FadeIn key={key} style={[styles.body, key !== screen && styles.hidden]}>
+            {tab(key)}
+          </FadeIn>
+        ) : null
+      )}
+      {!keyboardUp && <TabBar tabs={TABS} active={screen} onChange={go} />}
       <StatusBar style="auto" />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg, paddingTop: Platform.OS === "android" ? RNStatusBar.currentHeight ?? 0 : 0 },
+  root: { flex: 1, backgroundColor: colors.bg },
   body: { flex: 1 },
+  hidden: { display: "none" },
 });

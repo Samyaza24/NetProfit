@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { BackHandler, Linking, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { friendlyError } from "../lib/errors";
 import { fetchWithTimeout } from "../lib/http";
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function PairScreen({ onPaired }: Props) {
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -44,17 +46,33 @@ export default function PairScreen({ onPaired }: Props) {
     }
   }
 
+  // Android Back cancels a scan instead of closing the app.
+  useEffect(() => {
+    if (!scanning) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setScanning(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [scanning]);
+
   if (!permission) return <View />;
 
   if (!permission.granted) {
+    // After a permanent denial the system no longer shows the prompt, so send the operator to settings.
+    const blocked = !permission.canAskAgain;
     return (
       <View style={s.container}>
         <View style={s.logo}>
           <Logo height={64} />
         </View>
         <Text style={s.title}>Camera needed</Text>
-        <Text style={s.body}>Allow camera access to scan the pairing QR code.</Text>
-        <Button title="Allow camera" onPress={requestPermission} />
+        <Text style={s.body}>
+          {blocked
+            ? "Camera access is turned off for NetProfit. Turn it on in the phone's settings, then come back."
+            : "Allow camera access to scan the pairing QR code."}
+        </Text>
+        <Button title={blocked ? "Open settings" : "Allow camera"} onPress={blocked ? () => Linking.openSettings() : requestPermission} />
       </View>
     );
   }
@@ -67,7 +85,11 @@ export default function PairScreen({ onPaired }: Props) {
         </View>
         <Text style={s.title}>Pair this phone</Text>
         <Text style={s.body}>On your PC open the Pair page, generate a QR code, then scan it here.</Text>
-        {error && <Text style={s.error}>{error}</Text>}
+        {error && (
+          <Text style={s.error} accessibilityRole="alert">
+            {error}
+          </Text>
+        )}
         <Button title="Scan pairing QR" onPress={() => setScanning(true)} loading={busy} />
       </View>
     );
@@ -76,7 +98,7 @@ export default function PairScreen({ onPaired }: Props) {
   return (
     <View style={s.scan}>
       <CameraView style={s.camera} barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={handleScan} />
-      <View style={s.cancel}>
+      <View style={[s.cancel, { paddingBottom: space.lg + insets.bottom }]}>
         <Button title="Cancel" variant="secondary" onPress={() => setScanning(false)} />
       </View>
     </View>

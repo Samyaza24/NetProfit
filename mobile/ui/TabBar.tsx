@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon, { IconName } from "./Icon";
 import { colors, space, TOUCH, type } from "./theme";
 import { useReducedMotion } from "./useReducedMotion";
@@ -41,8 +42,14 @@ export default function TabBar<T extends string>({ tabs, active, onChange }: Pro
     else Animated.timing(x, { toValue: to, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [index, tabWidth, width, reduced, x]);
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={s.bar} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View
+      accessibilityRole="tablist"
+      style={[s.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
       {width > 0 && (
         <Animated.View style={[s.indicatorBox, { width: tabWidth, transform: [{ translateX: x }] }]}>
           <View style={s.indicator} />
@@ -69,8 +76,8 @@ export default function TabBar<T extends string>({ tabs, active, onChange }: Pro
 }
 
 const s = StyleSheet.create({
-  // Extra bottom padding on Android keeps tabs clear of the gesture bar.
-  bar: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, paddingBottom: Platform.OS === "android" ? space.lg : 0 },
+  // The bottom padding comes from the device's safe-area inset (gesture bar, home indicator).
+  bar: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg },
   tab: { flex: 1, minHeight: TOUCH + 8, alignItems: "center", justifyContent: "center", gap: 2 },
   indicatorBox: { position: "absolute", top: 0, left: 0, alignItems: "center" },
   indicator: { width: 32, height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3, backgroundColor: colors.primary },

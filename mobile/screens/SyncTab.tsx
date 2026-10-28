@@ -7,7 +7,12 @@ import HistoryScreen from "./HistoryScreen";
 
 type Mode = "sync" | "history";
 
-export default function SyncTab({ onNeedsRePair }: { onNeedsRePair: () => void }) {
+interface Props {
+  active: boolean;
+  onNeedsRePair: () => void;
+}
+
+export default function SyncTab({ active, onNeedsRePair }: Props) {
   const [mode, setMode] = useState<Mode>("sync");
   return (
     <View style={s.container}>
@@ -21,7 +26,7 @@ export default function SyncTab({ onNeedsRePair }: { onNeedsRePair: () => void }
           onChange={setMode}
         />
       </View>
-      {mode === "sync" ? <SyncScreen onNeedsRePair={onNeedsRePair} /> : <HistoryScreen />}
+      {mode === "sync" ? <SyncScreen active={active} onNeedsRePair={onNeedsRePair} /> : <HistoryScreen active={active} />}
     </View>
   );
 }

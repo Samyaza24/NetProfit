@@ -1,5 +1,5 @@
 import { ElementRef, useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { friendlyError } from "../lib/errors";
 import {
   createLocalCustomer,
@@ -90,7 +90,8 @@ export default function TransactionScreen() {
   const others = suggestions.filter((c) => c.id !== existing?.id);
 
   return (
-    <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+    <View style={s.root}>
+    <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <Text style={s.label}>Customer</Text>
       <TextInput
         ref={input}
@@ -99,6 +100,10 @@ export default function TransactionScreen() {
         onChangeText={setName}
         placeholder="Type a name"
         autoCapitalize="words"
+        autoCorrect={false}
+        maxLength={80}
+        returnKeyType="done"
+        onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Customer name"
       />
       {isNew && <Badge label="New client" color={colors.warning} />}
@@ -110,7 +115,7 @@ export default function TransactionScreen() {
         </View>
       )}
 
-      <Text style={s.label}>Tier</Text>
+      <Text style={s.label}>Plan</Text>
       <View style={s.row}>
         {TIERS.map((t) => (
           <View key={t.label} style={s.tierCell}>
@@ -133,7 +138,6 @@ export default function TransactionScreen() {
         onChange={setStatus}
       />
 
-      {toast}
       {confirmDup && (
         <Text style={s.warn} accessibilityRole="alert">
           {name.trim()} already has this tier in the last 2 minutes. Save again?
@@ -151,11 +155,14 @@ export default function TransactionScreen() {
         loading={saving}
       />
     </ScrollView>
+    {toast}
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { padding: space.lg, gap: space.md },
+  root: { flex: 1 },
+  container: { padding: space.lg, paddingBottom: space.xl * 3, gap: space.md },
   label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body },
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },

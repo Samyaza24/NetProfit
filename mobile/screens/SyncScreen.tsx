@@ -9,12 +9,13 @@ import Icon from "../ui/Icon";
 import { colors, space, type } from "../ui/theme";
 
 interface Props {
+  active?: boolean;
   onNeedsRePair: () => void;
 }
 
 type Outcome = { kind: "ok"; result: SyncResult } | { kind: "auth" } | { kind: "error"; message: string; details: string };
 
-export default function SyncScreen({ onNeedsRePair }: Props) {
+export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -39,11 +40,13 @@ export default function SyncScreen({ onNeedsRePair }: Props) {
     }
   }
 
+  // Refresh the counts every time the tab is shown; join a sync that is already running.
   useEffect(() => {
+    if (!active) return;
     refresh();
     if (isSyncing()) handleSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [active]);
 
   return (
     <ScrollView contentContainerStyle={s.container}>
