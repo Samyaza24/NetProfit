@@ -35,7 +35,8 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      "expo-sharing"
     ]
   }
 }
