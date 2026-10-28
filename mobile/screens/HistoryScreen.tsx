@@ -1,6 +1,6 @@
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import { Expense, listRecentExpenses, listRecentTransactions, parseTs, TransactionWithName } from "../db/repo";
-import { tierName } from "../lib/format";
+import { formatDateTime, tierName } from "../lib/format";
 import { Badge, EmptyState, ErrorState } from "../ui/components";
 import FadeIn from "../ui/FadeIn";
 import { colors, formatPHP, space, type } from "../ui/theme";
@@ -42,7 +42,7 @@ export default function HistoryScreen({ active = true }: { active?: boolean }) {
           <View style={s.main}>
             <Text style={s.title}>{item.title}</Text>
             <Text style={s.muted}>
-              {parseTs(item.timestamp).toLocaleString()}
+              {formatDateTime(parseTs(item.timestamp))}
               {item.synced ? "" : " - pending"}
             </Text>
           </View>

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from "reac
 import { CustomerSummary, getCustomer, listCustomerTransactions, markTransactionPaid, parseTs, setCustomerStatus, Transaction } from "../db/repo";
 import { connectionOf, cutoffText } from "../lib/connection";
 import { friendlyError } from "../lib/errors";
-import { plural, tierName } from "../lib/format";
+import { formatDateTime, plural, tierName } from "../lib/format";
 import { Badge, Button, Card, EmptyState, ErrorState } from "../ui/components";
 import { colors, formatPHP, space, type } from "../ui/theme";
 import { useLoad } from "../ui/useLoad";
@@ -101,7 +101,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
             <View style={s.rowMain}>
               <Text style={s.rowTitle}>{tierName(item.duration_days)}</Text>
               <Text style={s.muted}>
-                {parseTs(item.timestamp).toLocaleString()}
+                {formatDateTime(parseTs(item.timestamp))}
                 {item.synced ? "" : " - pending"}
               </Text>
             </View>

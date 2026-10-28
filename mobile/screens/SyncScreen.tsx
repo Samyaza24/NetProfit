@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text } from "react-native";
 import { countUnsynced, parseTs } from "../db/repo";
 import { getMeta } from "../db/schema";
 import { friendlyError } from "../lib/errors";
+import { formatDateTime, plural } from "../lib/format";
 import { AuthError, isSyncing, SyncResult, syncNow } from "../sync/syncClient";
 import { Button, Card } from "../ui/components";
 import Icon from "../ui/Icon";
@@ -58,7 +59,7 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
         />
         <Text style={s.big}>{pending ? `${pending} waiting to sync` : "Everything is synced"}</Text>
         <Text style={s.muted}>
-          Last synced: {lastSynced ? parseTs(lastSynced).toLocaleString() : "Never"}
+          Last synced: {lastSynced ? formatDateTime(parseTs(lastSynced)) : "Never"}
         </Text>
       </Card>
 
@@ -68,12 +69,12 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
         <Card>
           <Text style={s.ok}>Sync complete</Text>
           <Text style={s.line}>
-            Sent: {outcome.result.pushed.transactions} sales, {outcome.result.pushed.expenses} expenses,{" "}
-            {outcome.result.pushed.customers} clients
+            Sent: {plural(outcome.result.pushed.transactions, "sale")}, {plural(outcome.result.pushed.expenses, "expense")},{" "}
+            {plural(outcome.result.pushed.customers, "client")}
           </Text>
           <Text style={s.line}>
-            Received: {outcome.result.pulled.transactions} sales, {outcome.result.pulled.expenses} expenses,{" "}
-            {outcome.result.pulled.customers} clients
+            Received: {plural(outcome.result.pulled.transactions, "sale")}, {plural(outcome.result.pulled.expenses, "expense")},{" "}
+            {plural(outcome.result.pulled.customers, "client")}
           </Text>
         </Card>
       )}

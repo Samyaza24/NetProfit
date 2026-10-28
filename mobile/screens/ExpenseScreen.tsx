@@ -2,6 +2,7 @@ import { ElementRef, useEffect, useRef, useState } from "react";
 import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { createExpense, listRecentDescriptions } from "../db/repo";
 import { friendlyError } from "../lib/errors";
+import { parseAmount } from "../lib/money";
 import { Button, Chip } from "../ui/components";
 import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
 import { useToast } from "../ui/Toast";
@@ -22,9 +23,13 @@ export default function ExpenseScreen() {
 
   async function submit() {
     if (busy.current) return; // a ref, so a fast double tap cannot save twice
-    const parsedAmount = Number(amount);
-    if (!description.trim() || !(parsedAmount > 0)) {
-      setError("Enter a description and an amount above zero.");
+    const parsedAmount = parseAmount(amount);
+    if (!description.trim()) {
+      setError("Type what the money was spent on.");
+      return;
+    }
+    if (parsedAmount === null) {
+      setError("Enter an amount like 200 or 1,200.50.");
       return;
     }
     busy.current = true;

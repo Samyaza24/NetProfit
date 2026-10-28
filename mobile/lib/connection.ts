@@ -1,3 +1,5 @@
+import { formatDateTime } from "./format";
+
 export type ConnState = "connected" | "cutoff" | "none";
 
 export interface Connection {
@@ -27,20 +29,18 @@ export function connectionOf(plans: { at: number; days: number }[], now = Date.n
   return { state: end > now ? "connected" : "cutoff", expiry: end, manual: false };
 }
 
-// "in 3 days", "in 5 hr", "2 days ago".
+// "in 3 days", "in 5 hr", "2 days ago", "just now".
 function relative(ms: number, now: number): string {
   const mins = Math.round(Math.abs(ms - now) / 60_000);
+  if (mins < 1) return "just now";
   const days = Math.round(mins / 1440);
   const text = mins < 60 ? `${mins} min` : mins < 1440 ? `${Math.round(mins / 60)} hr` : `${days} day${days === 1 ? "" : "s"}`;
   return ms >= now ? `in ${text}` : `${text} ago`;
 }
 
-export const whenText = (ms: number) =>
-  new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-
 // "Cuts off Nov 28, 2026, 12:08 AM (in 30 days)", "Cut off Oct 20, 2026, 3:00 PM (9 days ago)".
 export function cutoffText(c: Connection | undefined, now = Date.now()): string {
   if (!c || c.expiry === null) return "No plan bought yet";
   const verb = c.state === "connected" ? "Cuts off" : c.manual ? "Cut off by you" : "Cut off";
-  return `${verb} ${whenText(c.expiry)} (${relative(c.expiry, now)})`;
+  return `${verb} ${formatDateTime(c.expiry)} (${relative(c.expiry, now)})`;
 }
