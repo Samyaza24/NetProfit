@@ -19,7 +19,7 @@ export function Badge({ tone, children }: { tone: "success" | "danger" | "warnin
 
 interface StatCardProps {
   label: string;
-  value: string;
+  value: ReactNode;
   sub?: string;
   tone?: "hero" | "loss" | "pos" | "neg";
 }

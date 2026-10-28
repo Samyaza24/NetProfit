@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import BarChart from "@/components/BarChart";
+import CountUp from "@/components/CountUp";
+import Icon from "@/components/Icon";
+import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, StatCard, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
+import { formatPHP } from "@/lib/format";
+import { dailyReceived, Exp, startOfMonth, totals, Txn } from "@/lib/stats";
+import { useFetch } from "@/lib/useFetch";
 
 interface DashboardRow {
   id: string;
@@ -11,42 +18,145 @@ interface DashboardRow {
   outstanding_debt: number;
 }
 
+type SortKey = "name" | "total_visits" | "lifetime_value" | "outstanding_debt";
+
+const PAGE = 25;
+const load = () =>
+  Promise.all([apiGet<DashboardRow[]>("/dashboard"), apiGet<Txn[]>("/transactions"), apiGet<Exp[]>("/expenses")]);
+
 export default function DashboardPage() {
-  const [rows, setRows] = useState<DashboardRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, loading, reload } = useFetch(load);
+  const [query, setQuery] = useState("");
+  const [owesOnly, setOwesOnly] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "outstanding_debt", dir: -1 });
+  const [limit, setLimit] = useState(PAGE);
 
-  useEffect(() => {
-    apiGet<DashboardRow[]>("/dashboard")
-      .then(setRows)
-      .catch((e) => setError(String(e)));
-  }, []);
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (data?.[0] ?? [])
+      .filter((r) => r.name.toLowerCase().includes(q) && (!owesOnly || r.outstanding_debt > 0))
+      .sort((a, b) => {
+        const diff = sort.key === "name" ? a.name.localeCompare(b.name) : a[sort.key] - b[sort.key];
+        return diff * sort.dir || a.name.localeCompare(b.name);
+      });
+  }, [data, query, owesOnly, sort]);
 
-  if (error) return <p>Error loading dashboard: {error}</p>;
-  if (rows === null) return <p>Loading...</p>;
+  function sortBy(key: SortKey) {
+    setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : key === "name" ? 1 : -1 }));
+  }
+
+  const header = (key: SortKey, label: string, num = false) => (
+    <th className={num ? "num" : undefined} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button className="sort" onClick={() => sortBy(key)}>
+        {label} {sort.key === key ? (sort.dir === 1 ? "▲" : "▼") : ""}
+      </button>
+    </th>
+  );
+
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+
+  if (loading || !data) {
+    return (
+      <>
+        <PageHeader title="Dashboard" subtitle="Your business at a glance" />
+        <CardsSkeleton />
+        <TableSkeleton />
+      </>
+    );
+  }
+
+  const [, txns, exps] = data;
+  const month = totals(txns, exps, startOfMonth());
 
   return (
-    <div>
-      <h1>CRM Dashboard</h1>
-      <table cellPadding={8} style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th align="left">Customer</th>
-            <th align="right">Visits</th>
-            <th align="right">Lifetime Value</th>
-            <th align="right">Outstanding Debt</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} style={{ borderTop: "1px solid #ddd" }}>
-              <td>{row.name}</td>
-              <td align="right">{row.total_visits}</td>
-              <td align="right">{row.lifetime_value.toFixed(2)}</td>
-              <td align="right">{row.outstanding_debt.toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <PageHeader title="Dashboard" subtitle="Your business at a glance">
+        <button className="btn secondary" onClick={reload}>
+          <Icon name="refresh" /> Refresh
+        </button>
+      </PageHeader>
+
+      <div className="stat-grid">
+        <StatCard
+          tone={month.net < 0 ? "loss" : "hero"}
+          label="Net profit this month"
+          value={<CountUp value={month.net} />}
+          sub="Received minus expenses"
+        />
+        <StatCard label="Received" value={formatPHP(month.received)} sub="Paid sales this month" />
+        <StatCard label="Expenses" value={formatPHP(month.expenses)} sub="This month" />
+        <StatCard tone={month.unpaid > 0 ? "neg" : undefined} label="Unpaid" value={formatPHP(month.unpaid)} sub="Sales not yet paid this month" />
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h2>Last 7 days received</h2>
+        <BarChart data={dailyReceived(txns, 7)} />
+      </div>
+
+      <div className="toolbar">
+        <input
+          className="input search"
+          type="search"
+          placeholder="Search customers"
+          aria-label="Search customers"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setLimit(PAGE);
+          }}
+        />
+        <button className="chip" aria-pressed={owesOnly} onClick={() => setOwesOnly(!owesOnly)}>
+          Owes
+        </button>
+        <span className="spacer" />
+        <span style={{ color: "var(--muted)" }}>{rows.length} customers</span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="card">
+          <EmptyState icon="search" title={owesOnly ? "Nobody owes anything" : "No customers found"}>
+            <span>Customers appear here after a phone syncs.</span>
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <caption>Customers</caption>
+            <thead>
+              <tr>
+                {header("name", "Customer")}
+                {header("total_visits", "Visits", true)}
+                {header("lifetime_value", "Lifetime value", true)}
+                {header("outstanding_debt", "Owes", true)}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(0, limit).map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <div className="cell-name">
+                      <span className="avatar" aria-hidden="true">
+                        {r.name.trim().charAt(0).toUpperCase()}
+                      </span>
+                      {r.name}
+                    </div>
+                  </td>
+                  <td className="num">{r.total_visits}</td>
+                  <td className="num">{formatPHP(r.lifetime_value)}</td>
+                  <td className="num">{r.outstanding_debt > 0 ? <Badge tone="danger">{formatPHP(r.outstanding_debt)}</Badge> : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length > limit && (
+            <div className="more">
+              <button className="btn secondary" onClick={() => setLimit(limit + PAGE)}>
+                Show more ({rows.length - limit} left)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
