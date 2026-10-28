@@ -281,16 +281,54 @@ export async function upsertExpense(e: {
   );
 }
 
-export type TransactionWithName = Transaction & { customer_name: string | null };
+export interface HistoryRow {
+  kind: "sale" | "expense";
+  id: string;
+  timestamp: string;
+  client: string | null;
+  days: number | null;
+  description: string | null;
+  amount: number;
+  status: string;
+  synced: number;
+}
 
-export async function listRecentTransactions(limit = 50): Promise<TransactionWithName[]> {
+// Sales and expenses merged newest first, optionally filtered by client name or expense description.
+export async function listHistory(search: string, limit: number): Promise<HistoryRow[]> {
   const db = await getDb();
-  return db.getAllAsync<TransactionWithName>(
-    `SELECT t.*, c.name AS customer_name
-     FROM transactions t LEFT JOIN customers c ON c.id = t.customer_id
-     ORDER BY t.timestamp DESC LIMIT ?`,
+  const q = `%${search.trim().toLowerCase().replace(/[%_]/g, "")}%`;
+  return db.getAllAsync<HistoryRow>(
+    `SELECT * FROM (
+       SELECT 'sale' AS kind, t.id AS id, t.timestamp AS timestamp, c.name AS client, t.duration_days AS days,
+              NULL AS description, t.amount_received AS amount, t.status AS status, t.synced AS synced
+       FROM transactions t LEFT JOIN customers c ON c.id = t.customer_id
+       UNION ALL
+       SELECT 'expense', e.id, e.timestamp, NULL, NULL, e.description, e.amount, 'Expense', e.synced
+       FROM expenses e
+     )
+     WHERE LOWER(COALESCE(client, description, '')) LIKE ?
+     ORDER BY timestamp DESC LIMIT ?`,
+    q,
     limit
   );
+}
+
+export interface TodaySummary {
+  received: number;
+  sales: number;
+}
+
+// What came in today (paid sales only) and how many sales were recorded.
+export async function getTodaySummary(): Promise<TodaySummary> {
+  const db = await getDb();
+  const d = new Date();
+  const since = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+  const row = await db.getFirstAsync<TodaySummary>(
+    `SELECT COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount_received END), 0) AS received, COUNT(*) AS sales
+     FROM transactions WHERE timestamp >= ?`,
+    since
+  );
+  return row ?? { received: 0, sales: 0 };
 }
 
 export interface CustomerSummary {
@@ -412,7 +450,3 @@ export async function getTotals(since: string | null): Promise<Totals> {
   return { received: t?.received ?? 0, unpaid: t?.unpaid ?? 0, expenses: e?.expenses ?? 0 };
 }
 
-export async function listRecentExpenses(limit = 50): Promise<Expense[]> {
-  const db = await getDb();
-  return db.getAllAsync<Expense>("SELECT * FROM expenses ORDER BY timestamp DESC LIMIT ?", limit);
-}

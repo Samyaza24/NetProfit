@@ -1,4 +1,4 @@
-import { ElementRef, useEffect, useRef, useState } from "react";
+import { ComponentRef, useEffect, useRef, useState } from "react";
 import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { friendlyError } from "../lib/errors";
 import {
@@ -45,7 +45,7 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const [toast, showToast] = useToast();
-  const input = useRef<ElementRef<typeof TextInput>>(null);
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     getMeta("last_tier_days").then((d) => {

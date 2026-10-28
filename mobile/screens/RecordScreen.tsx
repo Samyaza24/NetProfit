@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, StyleSheet, View } from "react-native";
 import { Segmented } from "../ui/components";
 import { space } from "../ui/theme";
+import TodayStrip from "../ui/TodayStrip";
 import TransactionScreen, { Prefill } from "./TransactionScreen";
 import ExpenseScreen from "./ExpenseScreen";
 
@@ -19,6 +20,7 @@ export default function RecordScreen({ prefill }: { prefill?: Prefill | null }) 
   // keyboard is applied here because edge-to-edge Android no longer resizes the window by itself.
   return (
     <KeyboardAvoidingView style={s.container} behavior="padding">
+      <TodayStrip />
       <View style={s.switch}>
         <Segmented
           options={[

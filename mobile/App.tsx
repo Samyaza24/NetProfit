@@ -9,8 +9,9 @@ import PairScreen from "./screens/PairScreen";
 import RecordScreen from "./screens/RecordScreen";
 import { Prefill } from "./screens/TransactionScreen";
 import CustomersScreen from "./screens/CustomersScreen";
+import HistoryScreen from "./screens/HistoryScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
-import SyncTab from "./screens/SyncTab";
+import SyncScreen from "./screens/SyncScreen";
 import FadeIn from "./ui/FadeIn";
 import StatusStrip from "./ui/StatusStrip";
 import TabBar from "./ui/TabBar";
@@ -18,11 +19,12 @@ import { colors } from "./ui/theme";
 import { ReducedMotionProvider } from "./ui/useReducedMotion";
 import { isPaired, syncNow } from "./sync/syncClient";
 
-type Screen = "record" | "customers" | "analytics" | "sync";
+type Screen = "record" | "customers" | "history" | "analytics" | "sync";
 
 const TABS: [Screen, string, string][] = [
   ["record", "Record", "add-circle"],
   ["customers", "Clients", "people"],
+  ["history", "History", "time"],
   ["analytics", "Stats", "stats-chart"],
   ["sync", "Sync", "sync"],
 ];
@@ -112,20 +114,26 @@ function AppRoot() {
 
   const tab = (key: Screen) => {
     const active = screen === key;
-    if (key === "record") return <RecordScreen prefill={prefill} />;
-    if (key === "customers") {
-      return (
-        <CustomersScreen
-          active={active}
-          onSellAgain={(name, days) => {
-            setPrefill({ name, days, nonce: Date.now() });
-            go("record");
-          }}
-        />
-      );
+    switch (key) {
+      case "record":
+        return <RecordScreen prefill={prefill} />;
+      case "customers":
+        return (
+          <CustomersScreen
+            active={active}
+            onSellAgain={(name, days) => {
+              setPrefill({ name, days, nonce: Date.now() });
+              go("record");
+            }}
+          />
+        );
+      case "history":
+        return <HistoryScreen active={active} />;
+      case "analytics":
+        return <AnalyticsScreen active={active} />;
+      case "sync":
+        return <SyncScreen active={active} onNeedsRePair={() => setPaired(false)} />;
     }
-    if (key === "analytics") return <AnalyticsScreen active={active} />;
-    return <SyncTab active={active} onNeedsRePair={() => setPaired(false)} />;
   };
 
   return (

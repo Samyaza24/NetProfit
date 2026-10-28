@@ -1,4 +1,4 @@
-import { ElementRef, useEffect, useRef, useState } from "react";
+import { ComponentRef, useEffect, useRef, useState } from "react";
 import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { createExpense, listRecentDescriptions } from "../db/repo";
 import { friendlyError } from "../lib/errors";
@@ -14,7 +14,7 @@ export default function ExpenseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const busy = useRef(false);
-  const amountInput = useRef<ElementRef<typeof TextInput>>(null);
+  const amountInput = useRef<ComponentRef<typeof TextInput>>(null);
   const [toast, showToast] = useToast();
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function ExpenseScreen() {
         style={s.input}
         value={description}
         onChangeText={setDescription}
-        placeholder="Cable ties"
+        placeholder="Wifi Bill"
         autoCorrect={false}
         maxLength={100}
         returnKeyType="next"

@@ -46,10 +46,12 @@ export function useLoad<T>(load: () => Promise<T>, active = true, pollMs = 0) {
     };
   }, [active, pollMs]);
 
+  // reload shows the pull-to-refresh spinner; refresh fetches quietly (used when local data changes).
   const reload = useCallback(() => {
     setRefreshing(true);
     setTick((t) => t + 1);
   }, []);
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
 
-  return { ...state, refreshing, reload };
+  return { ...state, refreshing, reload, refresh };
 }
