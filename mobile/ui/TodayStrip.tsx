@@ -23,7 +23,7 @@ export default function TodayStrip() {
 }
 
 const s = StyleSheet.create({
-  strip: { flexDirection: "row", alignItems: "baseline", gap: space.sm, marginHorizontal: space.md, marginTop: space.sm, paddingVertical: space.sm, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: colors.primarySoft },
+  strip: { flexDirection: "row", alignItems: "baseline", gap: space.sm, marginHorizontal: space.lg, marginTop: space.md, paddingVertical: space.sm, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: colors.primarySoft },
   label: { fontSize: type.small, fontWeight: "700", color: colors.primary, textTransform: "uppercase" },
   value: { flex: 1, fontSize: type.title, fontWeight: "800", color: colors.text },
   sales: { fontSize: type.small, color: colors.muted },

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BackHandler, Keyboard, Platform, StyleSheet, View } from "react-native";
+import { BackHandler, StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { friendlyError } from "./lib/errors";
@@ -16,6 +16,7 @@ import FadeIn from "./ui/FadeIn";
 import StatusStrip from "./ui/StatusStrip";
 import TabBar from "./ui/TabBar";
 import { colors } from "./ui/theme";
+import { useKeyboardVisible } from "./ui/useKeyboardVisible";
 import { ReducedMotionProvider } from "./ui/useReducedMotion";
 import { isPaired, syncNow } from "./sync/syncClient";
 
@@ -47,7 +48,7 @@ function AppRoot() {
   const [screen, setScreen] = useState<Screen>("record");
   // Tabs are mounted the first time they are opened and then kept, so drafts, filters and scroll survive.
   const [visited, setVisited] = useState<Set<Screen>>(new Set(["record"]));
-  const [keyboardUp, setKeyboardUp] = useState(false);
+  const keyboardUp = useKeyboardVisible(); // the tab bar hides while typing so it does not ride above the keyboard
   const [startError, setStartError] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<Prefill | null>(null);
 
@@ -63,16 +64,6 @@ function AppRoot() {
     setVisited((v) => (v.has(next) ? v : new Set(v).add(next)));
   }, []);
 
-  // Hide the tab bar while typing so it does not ride above the keyboard.
-  useEffect(() => {
-    const [showEvent, hideEvent] = Platform.OS === "ios" ? ["keyboardWillShow", "keyboardWillHide"] : ["keyboardDidShow", "keyboardDidHide"];
-    const show = Keyboard.addListener(showEvent as "keyboardDidShow", () => setKeyboardUp(true));
-    const hide = Keyboard.addListener(hideEvent as "keyboardDidHide", () => setKeyboardUp(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   // Android Back: from any other tab go to Record; on Record let the system leave the app.
   useEffect(() => {

@@ -16,6 +16,7 @@ import { getMeta, setMeta } from "../db/schema";
 import { Badge, Button, Chip, Segmented } from "../ui/components";
 import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
 import { useToast } from "../ui/Toast";
+import { useKeyboardVisible } from "../ui/useKeyboardVisible";
 
 const TIERS: { label: string; days: number; amount: number }[] = [
   { label: "1 Day", days: 1, amount: 20 },
@@ -45,6 +46,16 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const [toast, showToast] = useToast();
+
+  // Roomy by default. If that would force scrolling (a short phone), switch to the compact layout once.
+  // The keyboard being open does not count: it always shrinks the visible area.
+  const [tight, setTight] = useState(false);
+  const keyboard = useKeyboardVisible();
+  const sizes = useRef({ view: 0, content: 0 });
+  const fit = () => {
+    const { view, content } = sizes.current;
+    if (!tight && !keyboard && view > 0 && content > view + 1) setTight(true);
+  };
   const input = useRef<ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
@@ -136,7 +147,20 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
 
   return (
     <View style={s.root}>
-    <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+    <ScrollView
+      contentContainerStyle={tight ? s.containerTight : s.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      onLayout={(e) => {
+        sizes.current.view = e.nativeEvent.layout.height;
+        fit();
+      }}
+      onContentSizeChange={(_, h) => {
+        sizes.current.content = h;
+        fit();
+      }}
+    >
+      {!tight && <Text style={s.label}>Client</Text>}
       <TextInput
         ref={input}
         style={s.input}
@@ -176,7 +200,8 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         </ScrollView>
       )}
 
-      <View style={s.tiers} accessibilityRole="radiogroup" accessibilityLabel="Plan">
+      {!tight && <Text style={s.label}>Plan</Text>}
+      <View style={[s.tiers, tight && s.tiersTight]} accessibilityRole="radiogroup" accessibilityLabel="Plan">
         {TIERS.map((t) => (
           <View key={t.label} style={s.tierCell}>
             <Chip
@@ -190,8 +215,9 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         ))}
       </View>
 
+      {!tight && <Text style={s.label}>Payment</Text>}
       <Segmented
-        compact
+        compact={tight}
         label="Payment"
         options={[
           ["Paid", "Paid"],
@@ -225,10 +251,14 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  container: { padding: space.md, gap: space.sm },
+  container: { padding: space.lg, gap: space.md },
+  // Used only when the roomy layout would not fit the screen without scrolling.
+  containerTight: { padding: space.md, gap: space.sm },
+  label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
   chips: { flexDirection: "row", gap: space.sm },
-  tiers: { flexDirection: "row", gap: space.xs },
+  tiers: { flexDirection: "row", gap: space.sm },
+  tiersTight: { gap: space.xs },
   tierCell: { flex: 1 },
   warn: { color: colors.warning, fontWeight: "600" },
   error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },

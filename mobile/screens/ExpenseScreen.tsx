@@ -52,6 +52,7 @@ export default function ExpenseScreen() {
   return (
     <View style={s.root}>
     <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <Text style={s.label}>Description</Text>
       <TextInput
         style={s.input}
         value={description}
@@ -70,13 +71,14 @@ export default function ExpenseScreen() {
           ))}
         </ScrollView>
       )}
+      <Text style={s.label}>Amount (PHP)</Text>
       <TextInput
         ref={amountInput}
         style={s.input}
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        placeholder="Amount (PHP)"
+        placeholder="200"
         returnKeyType="done"
         onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Expense amount"
@@ -95,7 +97,8 @@ export default function ExpenseScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  container: { padding: space.md, gap: space.sm },
+  container: { padding: space.lg, gap: space.md },
+  label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
   chips: { flexDirection: "row", gap: space.sm },
   error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
