@@ -28,7 +28,7 @@ def fresh_db(monkeypatch):
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(app, client=LOCAL)
+    return TestClient(app, client=LOCAL, base_url="http://localhost:8001")
 
 
 @pytest.fixture

@@ -1,15 +1,25 @@
+from urllib.parse import urlsplit
+
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models import Device
 from app.services.security import hash_secret
 
 
+LOCAL_HOSTS = ("127.0.0.1", "::1", "localhost")
+
+
 def require_local(request: Request) -> None:
-    host = request.client.host if request.client else None
-    if host not in ("127.0.0.1", "::1", "localhost"):
+    peer = request.client.host if request.client else None
+    # Host check blocks DNS rebinding; Origin check blocks cross-site writes from the operator's browser.
+    host = urlsplit("//" + request.headers.get("host", "")).hostname
+    origin = request.headers.get("origin")
+    bad_origin = request.method not in ("GET", "HEAD") and origin and origin not in settings.cors_origins
+    if peer not in LOCAL_HOSTS or host not in LOCAL_HOSTS or bad_origin:
         raise HTTPException(status_code=403, detail="Console endpoints are localhost-only")
 
 
