@@ -12,6 +12,8 @@ from app.services import device_service
 from app.services.security import get_server_url
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+# Phone-facing, open to the LAN: the pairing code is the credential.
+pair_router = APIRouter(prefix="/devices", tags=["devices"])
 
 
 @router.get("", response_model=list[DeviceRead])
@@ -36,7 +38,7 @@ def create_pairing_code(db: Session = Depends(get_db)) -> PairingCodeResponse:
     )
 
 
-@router.post("/pair", response_model=PairExchangeResponse, status_code=201)
+@pair_router.post("/pair", response_model=PairExchangeResponse, status_code=201)
 def pair_device(data: PairExchangeRequest, db: Session = Depends(get_db)) -> PairExchangeResponse:
     result = device_service.exchange_pairing_code(db, data.pairing_code, data.label)
     if result is None:

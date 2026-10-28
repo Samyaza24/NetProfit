@@ -1,10 +1,16 @@
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Device
 from app.services.security import hash_secret
+
+
+def require_local(request: Request) -> None:
+    host = request.client.host if request.client else None
+    if host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(status_code=403, detail="Console endpoints are localhost-only")
 
 
 def require_device(
