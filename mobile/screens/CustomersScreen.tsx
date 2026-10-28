@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { CustomerSummary, listCustomerSummaries } from "../db/repo";
 import { Badge, Chip, EmptyState } from "../ui/components";
+import Icon from "../ui/Icon";
 import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
 import CustomerDetailScreen from "./CustomerDetailScreen";
 
@@ -44,7 +45,9 @@ export default function CustomersScreen() {
         data={shown}
         keyExtractor={(r) => r.id}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={<EmptyState text={owesOnly ? "Nobody owes anything." : "No customers yet."} />}
+        ListEmptyComponent={
+          <EmptyState icon="people-outline" text={owesOnly ? "Nobody owes anything." : "No customers yet."} />
+        }
         renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"
@@ -59,6 +62,7 @@ export default function CustomersScreen() {
               </Text>
             </View>
             {item.outstanding_debt > 0 && <Badge label={`Owes ${formatPHP(item.outstanding_debt)}`} />}
+            <Icon name="chevron-forward" size={20} color={colors.muted} />
           </Pressable>
         )}
       />

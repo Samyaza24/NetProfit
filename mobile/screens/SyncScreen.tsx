@@ -4,6 +4,7 @@ import { countUnsynced, parseTs } from "../db/repo";
 import { getMeta } from "../db/schema";
 import { AuthError, SyncResult, syncNow } from "../sync/syncClient";
 import { Button, Card } from "../ui/components";
+import Icon from "../ui/Icon";
 import { colors, space, type } from "../ui/theme";
 
 interface Props {
@@ -43,13 +44,18 @@ export default function SyncScreen({ onNeedsRePair }: Props) {
   return (
     <ScrollView contentContainerStyle={s.container}>
       <Card>
+        <Icon
+          name={pending ? "cloud-upload-outline" : "cloud-done-outline"}
+          size={44}
+          color={pending ? colors.warning : colors.success}
+        />
         <Text style={s.big}>{pending ? `${pending} waiting to sync` : "Everything is synced"}</Text>
         <Text style={s.muted}>
           Last synced: {lastSynced ? parseTs(lastSynced).toLocaleString() : "Never"}
         </Text>
       </Card>
 
-      <Button title={busy ? "Syncing..." : "Sync now"} onPress={handleSync} loading={busy} />
+      <Button title="Sync now" icon="sync" onPress={handleSync} loading={busy} />
 
       {outcome?.kind === "ok" && (
         <Card>

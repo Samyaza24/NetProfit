@@ -130,6 +130,7 @@ export default function TransactionScreen() {
         <Text style={s.warn}>{name.trim()} already has this tier in the last 2 minutes. Save again?</Text>
       )}
       <Button
+        icon="checkmark"
         title={confirmDup ? "Yes, record again" : `Save ${formatPHP(tier.amount)}`}
         onPress={submit}
         loading={saving}

@@ -39,7 +39,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
 
   return (
     <View style={s.container}>
-      <Button title="Back to clients" variant="secondary" onPress={onBack} />
+      <Button title="Back to clients" icon="chevron-back" variant="secondary" onPress={onBack} />
       <Card>
         <Text style={s.name}>{customer.name}</Text>
         <Text style={s.line}>{rows.length} visits</Text>
@@ -64,7 +64,7 @@ export default function CustomerDetailScreen({ customer, onBack }: Props) {
               {item.status === "Paid" ? (
                 <Badge label="Paid" color={colors.success} />
               ) : (
-                <Button title="Mark paid" variant="secondary" onPress={() => confirmPaid(item)} />
+                <Button title="Mark paid" icon="checkmark-circle-outline" variant="secondary" onPress={() => confirmPaid(item)} />
               )}
             </View>
           </View>

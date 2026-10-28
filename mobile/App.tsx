@@ -13,11 +13,11 @@ import { isPaired } from "./sync/syncClient";
 
 type Screen = "record" | "customers" | "analytics" | "sync";
 
-const TABS: [Screen, string][] = [
-  ["record", "Record"],
-  ["customers", "Clients"],
-  ["analytics", "Stats"],
-  ["sync", "Sync"],
+const TABS: [Screen, string, string][] = [
+  ["record", "Record", "add-circle"],
+  ["customers", "Clients", "people"],
+  ["analytics", "Stats", "stats-chart"],
+  ["sync", "Sync", "sync"],
 ];
 
 export default function App() {

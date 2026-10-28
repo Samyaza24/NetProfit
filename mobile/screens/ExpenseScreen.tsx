@@ -55,7 +55,7 @@ export default function ExpenseScreen() {
         accessibilityLabel="Expense amount"
       />
       {toast}
-      <Button title="Save expense" onPress={submit} />
+      <Button title="Save expense" icon="checkmark" onPress={submit} />
     </ScrollView>
   );
 }

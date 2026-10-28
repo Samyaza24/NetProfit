@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { countUnsynced } from "../db/repo";
+import Icon from "./Icon";
 import Logo from "./Logo";
 import { colors, space, type } from "./theme";
 
@@ -27,7 +28,7 @@ export default function StatusStrip({ onPress }: { onPress: () => void }) {
         onPress={onPress}
         style={s.status}
       >
-        <View style={[s.dot, { backgroundColor: color }]} />
+        <Icon name={pending ? "cloud-upload-outline" : "cloud-done-outline"} size={20} color={color} />
         <Text style={[s.text, { color }]}>{label}</Text>
       </Pressable>
     </View>
@@ -37,6 +38,5 @@ export default function StatusStrip({ onPress }: { onPress: () => void }) {
 const s = StyleSheet.create({
   strip: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.lg, paddingVertical: space.sm, backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
   status: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: space.sm, paddingLeft: space.md },
-  dot: { width: 10, height: 10, borderRadius: 5 },
   text: { fontSize: type.small, fontWeight: "600" },
 });

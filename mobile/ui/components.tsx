@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import Icon, { IconName } from "./Icon";
 import { colors, radius, space, TOUCH, type } from "./theme";
 
 interface ButtonProps {
@@ -8,9 +9,10 @@ interface ButtonProps {
   variant?: "primary" | "secondary";
   disabled?: boolean;
   loading?: boolean;
+  icon?: IconName;
 }
 
-export function Button({ title, onPress, variant = "primary", disabled, loading }: ButtonProps) {
+export function Button({ title, onPress, variant = "primary", disabled, loading, icon }: ButtonProps) {
   const primary = variant === "primary";
   return (
     <Pressable
@@ -29,7 +31,10 @@ export function Button({ title, onPress, variant = "primary", disabled, loading 
       {loading ? (
         <ActivityIndicator color={primary ? colors.primaryText : colors.primary} />
       ) : (
-        <Text style={[s.buttonText, !primary && { color: colors.primary }]}>{title}</Text>
+        <View style={s.buttonContent}>
+          {icon && <Icon name={icon} size={20} color={primary ? colors.primaryText : colors.primary} />}
+          <Text style={[s.buttonText, !primary && { color: colors.primary }]}>{title}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -90,8 +95,13 @@ export function Badge({ label, color = colors.danger }: { label: string; color?:
   );
 }
 
-export function EmptyState({ text }: { text: string }) {
-  return <Text style={s.empty}>{text}</Text>;
+export function EmptyState({ text, icon = "file-tray-outline" }: { text: string; icon?: IconName }) {
+  return (
+    <View style={s.emptyWrap}>
+      <Icon name={icon} size={40} color={colors.muted} />
+      <Text style={s.empty}>{text}</Text>
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
@@ -110,5 +120,7 @@ const s = StyleSheet.create({
   segmentActive: { backgroundColor: colors.primary },
   badge: { alignSelf: "flex-start", paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.sm },
   badgeText: { color: colors.primaryText, fontSize: type.small, fontWeight: "700" },
-  empty: { textAlign: "center", marginTop: space.xl, color: colors.muted, fontSize: type.body },
+  buttonContent: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  emptyWrap: { alignItems: "center", gap: space.sm, marginTop: space.xl },
+  empty: { textAlign: "center", color: colors.muted, fontSize: type.body },
 });

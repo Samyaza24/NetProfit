@@ -36,7 +36,7 @@ export default function HistoryScreen() {
       contentContainerStyle={s.list}
       data={entries}
       keyExtractor={(e) => `${e.kind}-${e.id}`}
-      ListEmptyComponent={<EmptyState text="Nothing recorded yet." />}
+      ListEmptyComponent={<EmptyState icon="time-outline" text="Nothing recorded yet." />}
       renderItem={({ item }) => (
         <View style={s.row}>
           <View style={s.main}>
