@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
 import { Badge, EmptyState, ErrorState, PageHeader, Segmented, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
@@ -139,7 +140,9 @@ export default function TransactionsPage() {
                         <span className="avatar" aria-hidden="true">
                           {name.trim().charAt(0).toUpperCase()}
                         </span>
-                        {name}
+                        <Link href={`/customers/${t.customer_id}`} className="row-link">
+                          {name}
+                        </Link>
                       </div>
                     </td>
                     <td>{tierLabel(t.duration_days)}</td>

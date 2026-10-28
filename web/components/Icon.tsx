@@ -10,6 +10,8 @@ const PATHS = {
   alert: "M12 3l10 18H2zM12 10v5M12 18h.01",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   inbox: "M3 13l3-9h12l3 9v7H3zM3 13h5l1 3h6l1-3h5",
+  back: "M15 6l-6 6 6 6",
+  chevron: "M9 6l6 6-6 6",
 } as const;
 
 export type IconName = keyof typeof PATHS;

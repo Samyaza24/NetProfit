@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import BarChart from "@/components/BarChart";
 import CountUp from "@/components/CountUp";
@@ -26,6 +28,7 @@ const load = () =>
 
 export default function DashboardPage() {
   const { data, error, loading, reload } = useFetch(load);
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "outstanding_debt", dir: -1 });
@@ -128,22 +131,28 @@ export default function DashboardPage() {
                 {header("total_visits", "Visits", true)}
                 {header("lifetime_value", "Lifetime value", true)}
                 {header("outstanding_debt", "Owes", true)}
+                <th aria-label="Open" />
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, limit).map((r) => (
-                <tr key={r.id}>
+                <tr key={r.id} className="clickable" onClick={() => router.push(`/customers/${r.id}`)}>
                   <td>
                     <div className="cell-name">
                       <span className="avatar" aria-hidden="true">
                         {r.name.trim().charAt(0).toUpperCase()}
                       </span>
-                      {r.name}
+                      <Link href={`/customers/${r.id}`} className="row-link" onClick={(e) => e.stopPropagation()}>
+                        {r.name}
+                      </Link>
                     </div>
                   </td>
                   <td className="num">{r.total_visits}</td>
                   <td className="num">{formatPHP(r.lifetime_value)}</td>
                   <td className="num">{r.outstanding_debt > 0 ? <Badge tone="danger">{formatPHP(r.outstanding_debt)}</Badge> : "-"}</td>
+                  <td className="chev">
+                    <Icon name="chevron" size={18} />
+                  </td>
                 </tr>
               ))}
             </tbody>

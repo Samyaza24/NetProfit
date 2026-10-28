@@ -25,7 +25,7 @@ export default function Sidebar() {
       </Link>
       <nav className="nav" aria-label="Main">
         {LINKS.map(([href, label, icon]) => (
-          <Link key={href} href={href} aria-current={path === href ? "page" : undefined}>
+          <Link key={href} href={href} aria-current={path === href || (href === "/" && path.startsWith("/customers")) ? "page" : undefined}>
             <Icon name={icon} />
             {label}
           </Link>

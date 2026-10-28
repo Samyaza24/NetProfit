@@ -258,9 +258,10 @@ a {
   font-size: 13px;
   color: var(--muted);
 }
+/* Solid dark fills in both themes so white text always has enough contrast. */
 .stat-hero {
-  background: var(--success);
-  border-color: var(--success);
+  background: #1b7f3b;
+  border-color: #1b7f3b;
   color: #fff;
 }
 .stat-hero .stat-label,
@@ -268,8 +269,8 @@ a {
   color: #fff;
 }
 .stat-hero.loss {
-  background: var(--danger);
-  border-color: var(--danger);
+  background: #b00020;
+  border-color: #b00020;
 }
 .pos {
   color: var(--success);
@@ -310,8 +311,8 @@ a {
   color: var(--primary);
 }
 .btn.danger {
-  background: var(--danger);
-  border-color: var(--danger);
+  background: #b00020;
+  border-color: #b00020;
   color: #fff;
 }
 .input {
@@ -510,6 +511,35 @@ a {
   background: var(--primary-soft);
   color: var(--primary);
   font-weight: 800;
+}
+.table tbody tr.clickable {
+  cursor: pointer;
+}
+.row-link {
+  color: inherit;
+  font-weight: 600;
+}
+.row-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.chev {
+  width: 1%;
+  color: var(--muted);
+}
+.chev svg {
+  display: block;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.back:hover {
+  color: var(--primary);
 }
 .more {
   display: flex;
