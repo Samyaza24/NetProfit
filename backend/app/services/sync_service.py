@@ -64,6 +64,7 @@ def process_transaction_sync(
                     amount_received=t.amount_received,
                     duration_days=t.duration_days,
                     status=t.status,
+                    timestamp=to_naive_utc(t.timestamp) if t.timestamp else utc_now(),
                 )
             )
             existing_transaction_ids.add(t.id)
@@ -74,7 +75,11 @@ def process_transaction_sync(
                 continue
             db.add(
                 OperationalExpense(
-                    id=e.id, device_id=device.id, description=e.description, amount=e.amount
+                    id=e.id,
+                    device_id=device.id,
+                    description=e.description,
+                    amount=e.amount,
+                    timestamp=to_naive_utc(e.timestamp) if e.timestamp else utc_now(),
                 )
             )
             existing_expense_ids.add(e.id)

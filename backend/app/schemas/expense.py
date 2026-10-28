@@ -13,6 +13,7 @@ class ExpenseBase(BaseModel):
 
 class ExpenseCreate(ExpenseBase):
     id: UUIDStr
+    timestamp: datetime | None = None
 
 
 class ExpenseRead(ExpenseBase):

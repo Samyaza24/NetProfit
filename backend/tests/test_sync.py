@@ -37,6 +37,19 @@ def test_push_new_customer_with_dependent_transaction(client, auth):
     assert res.json()["accepted"] == {"customers": 1, "transactions": 1, "expenses": 1}
 
 
+def test_push_keeps_client_timestamp(client, auth):
+    cid, ts = new_id(), "2020-01-02T03:04:05Z"
+    payload = {
+        "customers": [{"id": cid, "name": "Ana"}],
+        "transactions": [txn(cid, timestamp=ts)],
+        "expenses": [{"id": new_id(), "description": "fuel", "amount": 50, "timestamp": ts}],
+    }
+    assert client.post(SYNC, json=payload, headers=auth).status_code == 200
+    pulled = client.get(SYNC, headers=auth).json()
+    assert pulled["transactions"][0]["timestamp"].startswith("2020-01-02T03:04:05")
+    assert pulled["expenses"][0]["timestamp"].startswith("2020-01-02T03:04:05")
+
+
 def test_push_is_idempotent(client, auth):
     cid = new_id()
     # Mobile clients always send updated_at; without it the server stamps "now" on every push.

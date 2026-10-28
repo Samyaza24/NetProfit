@@ -60,12 +60,14 @@ export async function syncNow(): Promise<SyncResult> {
       amount_received: t.amount_received,
       duration_days: t.duration_days,
       status: t.status,
+      timestamp: t.timestamp,
     })),
     expenses: expenses.map((e) => ({
       id: e.id,
       device_id: e.device_id,
       description: e.description,
       amount: e.amount,
+      timestamp: e.timestamp,
     })),
   };
 

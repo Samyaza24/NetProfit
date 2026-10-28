@@ -16,6 +16,7 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(TransactionBase):
     id: UUIDStr
+    timestamp: datetime | None = None
 
 
 class TransactionRead(TransactionBase):
