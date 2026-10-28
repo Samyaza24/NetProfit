@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { getMeta, setMeta } from "../db/schema";
 import {
+  applyCustomerRemap,
   getUnsyncedCustomers,
   getUnsyncedExpenses,
   getUnsyncedTransactions,
@@ -79,6 +80,10 @@ export async function syncNow(): Promise<SyncResult> {
   if (pushRes.status === 401) throw new AuthError("Device token invalid or revoked");
   if (!pushRes.ok) throw new Error(`Push failed: ${pushRes.status}`);
 
+  // Names the server already had under another id: follow the server's customer.
+  const pushed: { customer_remap?: Record<string, string> } = await pushRes.json();
+  const needFullPull = await applyCustomerRemap(pushed.customer_remap ?? {});
+
   await markSynced(
     "customers",
     customers.map((c) => c.id)
@@ -92,7 +97,7 @@ export async function syncNow(): Promise<SyncResult> {
     expenses.map((e) => e.id)
   );
 
-  const since = await getMeta("last_synced_at");
+  const since = needFullPull ? null : await getMeta("last_synced_at");
   const query = since ? `?since=${encodeURIComponent(since)}` : "";
   const pullRes = await fetch(`${serverUrl}/sync${query}`, { headers });
   if (pullRes.status === 401) throw new AuthError("Device token invalid or revoked");

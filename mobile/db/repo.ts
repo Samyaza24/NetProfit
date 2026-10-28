@@ -145,6 +145,20 @@ export async function countUnsynced(): Promise<number> {
   return row?.n ?? 0;
 }
 
+// Points local rows at the server's customer when it already had that name, then drops our duplicate.
+// Returns true when the target customer is not on this phone yet (a full pull is then needed).
+export async function applyCustomerRemap(remap: Record<string, string>): Promise<boolean> {
+  const db = await getDb();
+  let missing = false;
+  for (const [oldId, newId] of Object.entries(remap)) {
+    await db.runAsync("UPDATE transactions SET customer_id = ? WHERE customer_id = ?", newId, oldId);
+    await db.runAsync("DELETE FROM customers WHERE id = ?", oldId);
+    const have = await db.getFirstAsync<{ id: string }>("SELECT id FROM customers WHERE id = ?", newId);
+    if (!have) missing = true;
+  }
+  return missing;
+}
+
 export async function markSynced(
   table: "customers" | "transactions" | "expenses",
   ids: string[]
