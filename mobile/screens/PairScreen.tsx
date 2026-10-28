@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { storeCredentials } from "../sync/syncClient";
 import { Button } from "../ui/components";
+import Logo from "../ui/Logo";
 import { colors, space, type } from "../ui/theme";
 
 interface Props {
@@ -43,6 +44,9 @@ export default function PairScreen({ onPaired }: Props) {
   if (!permission.granted) {
     return (
       <View style={s.container}>
+        <View style={s.logo}>
+          <Logo height={64} />
+        </View>
         <Text style={s.title}>Camera needed</Text>
         <Text style={s.body}>Allow camera access to scan the pairing QR code.</Text>
         <Button title="Allow camera" onPress={requestPermission} />
@@ -53,6 +57,9 @@ export default function PairScreen({ onPaired }: Props) {
   if (!scanning) {
     return (
       <View style={s.container}>
+        <View style={s.logo}>
+          <Logo height={64} />
+        </View>
         <Text style={s.title}>Pair this phone</Text>
         <Text style={s.body}>On your PC open the Pair page, generate a QR code, then scan it here.</Text>
         {error && <Text style={s.error}>{error}</Text>}
@@ -73,6 +80,7 @@ export default function PairScreen({ onPaired }: Props) {
 
 const s = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: space.xl, gap: space.md },
+  logo: { alignItems: "center", marginBottom: space.lg },
   title: { fontSize: type.big, fontWeight: "700", color: colors.text },
   body: { fontSize: type.body, color: colors.muted },
   error: { fontSize: type.body, color: colors.danger },
