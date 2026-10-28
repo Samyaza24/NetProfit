@@ -1,61 +1,135 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import Icon from "@/components/Icon";
+import { EmptyState, ErrorState, PageHeader, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
-
-interface Expense {
-  id: string;
-  device_id: string | null;
-  description: string;
-  amount: number;
-  timestamp: string;
-}
+import { downloadCsv } from "@/lib/csv";
+import { formatDateTime, formatPHP, parseTs } from "@/lib/format";
+import { inRange, Range, RANGES } from "@/lib/range";
+import { Exp } from "@/lib/stats";
+import { useFetch } from "@/lib/useFetch";
 
 interface Device {
   id: string;
   label: string;
 }
 
+const PAGE = 50;
+const load = () => Promise.all([apiGet<Exp[]>("/expenses"), apiGet<Device[]>("/devices")]);
+
 export default function ExpensesPage() {
-  const [rows, setRows] = useState<Expense[] | null>(null);
-  const [labels, setLabels] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, loading, reload } = useFetch(load);
+  const [query, setQuery] = useState("");
+  const [range, setRange] = useState<Range>("month");
+  const [limit, setLimit] = useState(PAGE);
 
-  useEffect(() => {
-    Promise.all([apiGet<Expense[]>("/expenses"), apiGet<Device[]>("/devices")])
-      .then(([expenses, devices]) => {
-        setLabels(Object.fromEntries(devices.map((d) => [d.id, d.label])));
-        setRows([...expenses].sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
-      })
-      .catch((e) => setError(String(e)));
-  }, []);
+  const labels = useMemo(() => Object.fromEntries((data?.[1] ?? []).map((d) => [d.id, d.label])), [data]);
 
-  if (error) return <p>Error loading expenses: {error}</p>;
-  if (rows === null) return <p>Loading...</p>;
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (data?.[0] ?? [])
+      .filter((x) => inRange(x.timestamp, range) && x.description.toLowerCase().includes(q))
+      .sort((a, b) => parseTs(b.timestamp).getTime() - parseTs(a.timestamp).getTime());
+  }, [data, query, range]);
+
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+
+  if (loading || !data) {
+    return (
+      <>
+        <PageHeader title="Expenses" subtitle="Costs recorded by your phones" />
+        <TableSkeleton />
+      </>
+    );
+  }
+
+  const total = rows.reduce((s, x) => s + x.amount, 0);
+  const device = (x: Exp) => (x.device_id ? (labels[x.device_id] ?? "Unknown device") : "-");
+
+  function exportCsv() {
+    downloadCsv(
+      "expenses.csv",
+      ["Time", "Description", "Amount", "Device"],
+      rows.map((x) => [parseTs(x.timestamp).toISOString(), x.description, x.amount, device(x)])
+    );
+  }
 
   return (
-    <div>
-      <h1>Expenses</h1>
-      <table cellPadding={8} style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th align="left">Time</th>
-            <th align="left">Description</th>
-            <th align="right">Amount</th>
-            <th align="left">Device</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((x) => (
-            <tr key={x.id} style={{ borderTop: "1px solid #ddd" }}>
-              <td>{x.timestamp}</td>
-              <td>{x.description}</td>
-              <td align="right">{x.amount.toFixed(2)}</td>
-              <td>{x.device_id ? (labels[x.device_id] ?? x.device_id) : "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <PageHeader title="Expenses" subtitle="Costs recorded by your phones">
+        <button className="btn secondary" onClick={reload}>
+          <Icon name="refresh" /> Refresh
+        </button>
+        <button className="btn secondary" onClick={exportCsv} disabled={rows.length === 0}>
+          <Icon name="download" /> Export CSV
+        </button>
+      </PageHeader>
+
+      <div className="toolbar">
+        <input
+          className="input search"
+          type="search"
+          placeholder="Search description"
+          aria-label="Search description"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setLimit(PAGE);
+          }}
+        />
+        {RANGES.map(([key, label]) => (
+          <button key={key} className="chip" aria-pressed={range === key} onClick={() => setRange(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="card">
+          <EmptyState icon="wallet" title="No expenses match">
+            <span>Try a wider date range or clear the search.</span>
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <caption>Expenses</caption>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Description</th>
+                <th className="num">Amount</th>
+                <th>Device</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(0, limit).map((x) => (
+                <tr key={x.id}>
+                  <td>{formatDateTime(x.timestamp)}</td>
+                  <td>{x.description}</td>
+                  <td className="num">{formatPHP(x.amount)}</td>
+                  <td>{device(x)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={2}>{rows.length} expenses</td>
+                <td className="num">{formatPHP(total)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+          {rows.length > limit && (
+            <div className="more">
+              <button className="btn secondary" onClick={() => setLimit(limit + PAGE)}>
+                Show more ({rows.length - limit} left)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
