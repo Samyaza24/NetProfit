@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "NetProfit",
+  title: { default: "NetProfit", template: "%s - NetProfit" },
   description: "NetProfit local dashboard",
 };
 
@@ -24,9 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en">
       <body>
-        <nav style={{ display: "flex", gap: 16, padding: 16, borderBottom: "1px solid #ccc" }}>
+        <nav style={{ display: "flex", gap: 16, padding: 16, borderBottom: "1px solid var(--border)" }}>
           <Link href="/">Dashboard</Link>
           <Link href="/transactions">Transactions</Link>
           <Link href="/expenses">Expenses</Link>
