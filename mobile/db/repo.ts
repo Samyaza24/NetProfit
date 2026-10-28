@@ -104,6 +104,16 @@ export async function getUnsyncedExpenses(): Promise<Expense[]> {
   return db.getAllAsync<Expense>("SELECT * FROM expenses WHERE synced = 0");
 }
 
+export async function countUnsynced(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ n: number }>(
+    `SELECT (SELECT COUNT(*) FROM customers WHERE synced = 0)
+          + (SELECT COUNT(*) FROM transactions WHERE synced = 0)
+          + (SELECT COUNT(*) FROM expenses WHERE synced = 0) AS n`
+  );
+  return row?.n ?? 0;
+}
+
 export async function markSynced(
   table: "customers" | "transactions" | "expenses",
   ids: string[]
