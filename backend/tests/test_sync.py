@@ -56,6 +56,27 @@ def test_push_rejects_unknown_customer(client, auth):
     assert client.get(SYNC, headers=auth).json()["transactions"] == []
 
 
+def test_unpaid_can_become_paid_and_is_pulled(client, auth):
+    cid = new_id()
+    t = txn(cid, status="Unpaid")
+    client.post(SYNC, json={"customers": [{"id": cid, "name": "Ana"}], "transactions": [t]}, headers=auth)
+    cursor = client.get(SYNC, headers=auth).json()["server_time"]
+
+    res = client.post(SYNC, json={"transactions": [{**t, "status": "Paid"}]}, headers=auth)
+    assert res.json()["accepted"]["transactions"] == 1
+    pulled = client.get(SYNC, params={"since": cursor}, headers=auth).json()["transactions"]
+    assert [(p["id"], p["status"]) for p in pulled] == [(t["id"], "Paid")]
+
+
+def test_paid_never_reverts_to_unpaid(client, auth):
+    cid = new_id()
+    t = txn(cid, status="Paid")
+    client.post(SYNC, json={"customers": [{"id": cid, "name": "Ana"}], "transactions": [t]}, headers=auth)
+    res = client.post(SYNC, json={"transactions": [{**t, "status": "Unpaid"}]}, headers=auth)
+    assert res.json()["accepted"]["transactions"] == 0
+    assert client.get(SYNC, headers=auth).json()["transactions"][0]["status"] == "Paid"
+
+
 def test_push_is_idempotent(client, auth):
     cid = new_id()
     # Mobile clients always send updated_at; without it the server stamps "now" on every push.

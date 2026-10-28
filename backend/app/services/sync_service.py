@@ -24,11 +24,12 @@ def process_transaction_sync(
         }
 
         transaction_ids = [t.id for t in payload.transactions]
-        existing_transaction_ids = set(
-            db.execute(
-                select(Transaction.id).where(Transaction.id.in_(transaction_ids))
+        existing_transactions = {
+            t.id: t
+            for t in db.execute(
+                select(Transaction).where(Transaction.id.in_(transaction_ids))
             ).scalars()
-        )
+        }
 
         expense_ids = [e.id for e in payload.expenses]
         existing_expense_ids = set(
@@ -60,20 +61,24 @@ def process_transaction_sync(
             raise HTTPException(422, f"Unknown customer_id: {sorted(missing)[0]}")
 
         for t in payload.transactions:
-            if t.id in existing_transaction_ids:
+            existing = existing_transactions.get(t.id)
+            if existing is not None:
+                # Only Unpaid to Paid is allowed, so devices can never disagree on a final state.
+                if existing.status == "Unpaid" and t.status == "Paid":
+                    existing.status = "Paid"
+                    counts.transactions += 1
                 continue
-            db.add(
-                Transaction(
-                    id=t.id,
-                    customer_id=t.customer_id,
-                    device_id=device.id,
-                    amount_received=t.amount_received,
-                    duration_days=t.duration_days,
-                    status=t.status,
-                    timestamp=to_naive_utc(t.timestamp) if t.timestamp else utc_now(),
-                )
+            new_txn = Transaction(
+                id=t.id,
+                customer_id=t.customer_id,
+                device_id=device.id,
+                amount_received=t.amount_received,
+                duration_days=t.duration_days,
+                status=t.status,
+                timestamp=to_naive_utc(t.timestamp) if t.timestamp else utc_now(),
             )
-            existing_transaction_ids.add(t.id)
+            db.add(new_txn)
+            existing_transactions[t.id] = new_txn
             counts.transactions += 1
 
         for e in payload.expenses:
@@ -108,7 +113,7 @@ def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:
     if since is not None:
         since = to_naive_utc(since)
         customers_q = customers_q.where(Customer.modified_at > since)
-        transactions_q = transactions_q.where(Transaction.timestamp > since)
+        transactions_q = transactions_q.where(Transaction.modified_at > since)
         expenses_q = expenses_q.where(OperationalExpense.timestamp > since)
 
     return SyncPullResponse(
