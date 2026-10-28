@@ -20,4 +20,12 @@ class Customer(Base):
         index=True,
     )
 
+    # Server-assigned, so pull cursors are not skewed by client clocks in updated_at.
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now,
+        index=True,
+    )
+
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="customer")

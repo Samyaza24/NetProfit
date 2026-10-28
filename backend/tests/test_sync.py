@@ -76,6 +76,14 @@ def test_pull_since_returns_only_newer(client, auth):
     assert len(client.get(SYNC, headers=auth).json()["customers"]) == 1
 
 
+def test_pull_sees_customer_pushed_with_old_client_timestamp(client, auth):
+    cursor = client.get(SYNC, headers=auth).json()["server_time"]
+    cid = new_id()
+    client.post(SYNC, json={"customers": [{"id": cid, "name": "Ana", "updated_at": "2000-01-01T00:00:00"}]}, headers=auth)
+    pulled = client.get(SYNC, params={"since": cursor}, headers=auth).json()
+    assert [c["id"] for c in pulled["customers"]] == [cid]
+
+
 def test_pull_includes_other_devices_rows(client, auth):
     other = pair(client, "phone-2")
     cid = new_id()

@@ -25,3 +25,10 @@ def init_db() -> None:
     from app.models import Base
 
     Base.metadata.create_all(bind=engine)
+    # create_all does not alter existing tables, so add modified_at to databases created before it.
+    with engine.begin() as conn:
+        cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(customers)")]
+        if "modified_at" not in cols:
+            conn.exec_driver_sql("ALTER TABLE customers ADD COLUMN modified_at DATETIME")
+            conn.exec_driver_sql("UPDATE customers SET modified_at = updated_at")
+            conn.exec_driver_sql("CREATE INDEX ix_customers_modified_at ON customers (modified_at)")

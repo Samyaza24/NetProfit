@@ -95,12 +95,13 @@ def process_transaction_sync(
 
 
 def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:
+    server_time = utc_now()  # taken before the queries so concurrent commits are not skipped
     customers_q = select(Customer)
     transactions_q = select(Transaction)
     expenses_q = select(OperationalExpense)
     if since is not None:
         since = to_naive_utc(since)
-        customers_q = customers_q.where(Customer.updated_at > since)
+        customers_q = customers_q.where(Customer.modified_at > since)
         transactions_q = transactions_q.where(Transaction.timestamp > since)
         expenses_q = expenses_q.where(OperationalExpense.timestamp > since)
 
@@ -108,5 +109,5 @@ def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:
         customers=list(db.execute(customers_q).scalars().all()),
         transactions=list(db.execute(transactions_q).scalars().all()),
         expenses=list(db.execute(expenses_q).scalars().all()),
-        server_time=utc_now(),
+        server_time=server_time,
     )
