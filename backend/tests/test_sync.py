@@ -123,6 +123,39 @@ def test_rename_onto_existing_name_is_ignored(client, auth):
     assert client.get(f"/api/v1/customers/{b}").json()["name"] == "Ben"
 
 
+def test_manual_cut_off_from_console_reaches_phones(client, auth):
+    cid = new_id()
+    client.post(SYNC, json={"customers": [{"id": cid, "name": "Ana"}]}, headers=auth)
+    cursor = client.get(SYNC, headers=auth).json()["server_time"]
+
+    res = client.patch(f"/api/v1/customers/{cid}", json={"status": "Disabled"})
+    assert res.status_code == 200 and res.json()["status"] == "Disabled"
+
+    pulled = client.get(SYNC, params={"since": cursor}, headers=auth).json()["customers"]
+    assert [(c["id"], c["status"]) for c in pulled] == [(cid, "Disabled")]
+
+
+def test_phone_can_cut_off_and_reconnect_with_last_write_wins(client, auth):
+    cid = new_id()
+    push = lambda status, ts: client.post(
+        SYNC, json={"customers": [{"id": cid, "name": "Ana", "status": status, "updated_at": ts}]}, headers=auth
+    )
+    push("Active", "2026-01-01T00:00:00")
+    push("Disabled", "2026-01-02T00:00:00")
+    assert client.get(f"/api/v1/customers/{cid}").json()["status"] == "Disabled"
+    push("Active", "2026-01-01T12:00:00")  # older edit must not undo the cut-off
+    assert client.get(f"/api/v1/customers/{cid}").json()["status"] == "Disabled"
+    push("Active", "2026-01-03T00:00:00")  # newer edit reconnects
+    assert client.get(f"/api/v1/customers/{cid}").json()["status"] == "Active"
+
+
+def test_customer_status_must_be_a_known_value(client, auth):
+    cid = new_id()
+    client.post(SYNC, json={"customers": [{"id": cid, "name": "Ana"}]}, headers=auth)
+    assert client.patch(f"/api/v1/customers/{cid}", json={"status": "Banned"}).status_code == 422
+    assert client.post(SYNC, json={"customers": [{"id": new_id(), "name": "Ben", "status": "x"}]}, headers=auth).status_code == 422
+
+
 def test_push_is_idempotent(client, auth):
     cid = new_id()
     # Mobile clients always send updated_at; without it the server stamps "now" on every push.
