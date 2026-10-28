@@ -198,6 +198,51 @@ export async function listRecentTransactions(limit = 50): Promise<Transaction[]>
   );
 }
 
+export interface CustomerSummary {
+  id: string;
+  name: string;
+  total_visits: number;
+  lifetime_value: number;
+  outstanding_debt: number;
+}
+
+// Same definitions as the backend dashboard: value is Paid sum, debt is Unpaid sum.
+export async function listCustomerSummaries(): Promise<CustomerSummary[]> {
+  const db = await getDb();
+  return db.getAllAsync<CustomerSummary>(
+    `SELECT c.id, c.name,
+            COUNT(t.id) AS total_visits,
+            COALESCE(SUM(CASE WHEN t.status = 'Paid' THEN t.amount_received END), 0) AS lifetime_value,
+            COALESCE(SUM(CASE WHEN t.status = 'Unpaid' THEN t.amount_received END), 0) AS outstanding_debt
+     FROM customers c LEFT JOIN transactions t ON t.customer_id = c.id
+     GROUP BY c.id, c.name
+     ORDER BY c.name COLLATE NOCASE`
+  );
+}
+
+export interface Totals {
+  received: number;
+  unpaid: number;
+  expenses: number;
+}
+
+// since is an ISO timestamp lower bound, or null for all time.
+export async function getTotals(since: string | null): Promise<Totals> {
+  const db = await getDb();
+  const from = since ?? "";
+  const t = await db.getFirstAsync<{ received: number; unpaid: number }>(
+    `SELECT COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount_received END), 0) AS received,
+            COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount_received END), 0) AS unpaid
+     FROM transactions WHERE timestamp >= ?`,
+    from
+  );
+  const e = await db.getFirstAsync<{ expenses: number }>(
+    "SELECT COALESCE(SUM(amount), 0) AS expenses FROM expenses WHERE timestamp >= ?",
+    from
+  );
+  return { received: t?.received ?? 0, unpaid: t?.unpaid ?? 0, expenses: e?.expenses ?? 0 };
+}
+
 export async function listRecentExpenses(limit = 50): Promise<Expense[]> {
   const db = await getDb();
   return db.getAllAsync<Expense>("SELECT * FROM expenses ORDER BY timestamp DESC LIMIT ?", limit);

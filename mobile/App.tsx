@@ -4,17 +4,21 @@ import { StatusBar } from "expo-status-bar";
 import PairScreen from "./screens/PairScreen";
 import TransactionScreen from "./screens/TransactionScreen";
 import ExpenseScreen from "./screens/ExpenseScreen";
+import CustomersScreen from "./screens/CustomersScreen";
+import AnalyticsScreen from "./screens/AnalyticsScreen";
 import SyncScreen from "./screens/SyncScreen";
 import HistoryScreen from "./screens/HistoryScreen";
 import { isPaired } from "./sync/syncClient";
 
-type Screen = "pair" | "transaction" | "expense" | "sync" | "history";
+type Screen = "pair" | "transaction" | "expense" | "customers" | "analytics" | "sync" | "history";
 
 const TABS: [Screen, string][] = [
-  ["transaction", "Transaction"],
+  ["transaction", "Sale"],
   ["expense", "Expense"],
-  ["sync", "Sync"],
+  ["customers", "Clients"],
+  ["analytics", "Stats"],
   ["history", "History"],
+  ["sync", "Sync"],
 ];
 
 export default function App() {
@@ -52,6 +56,8 @@ export default function App() {
       <View style={styles.body}>
         {screen === "transaction" && <TransactionScreen />}
         {screen === "expense" && <ExpenseScreen />}
+        {screen === "customers" && <CustomersScreen />}
+        {screen === "analytics" && <AnalyticsScreen />}
         {screen === "sync" && <SyncScreen onNeedsRePair={requireRePair} />}
         {screen === "history" && <HistoryScreen />}
       </View>
