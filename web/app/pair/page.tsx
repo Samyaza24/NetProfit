@@ -31,7 +31,11 @@ export default function PairPage() {
       {error && <p>Error: {error}</p>}
       {payload && (
         <div style={{ marginTop: 16 }}>
-          <QRCodeSVG value={JSON.stringify(payload)} size={256} />
+          <QRCodeSVG
+            value={JSON.stringify({ pairing_code: payload.pairing_code, server_url: payload.server_url })}
+            size={400}
+            marginSize={4}
+          />
           <p>Code: {payload.pairing_code}</p>
           <p>Expires: {payload.expires_at}</p>
         </div>
