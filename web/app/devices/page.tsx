@@ -5,7 +5,7 @@ import { useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Icon from "@/components/Icon";
 import { Badge, EmptyState, ErrorState, PageHeader, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import { formatDateTime, parseTs, timeAgo } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
 
@@ -30,6 +30,7 @@ function status(d: Device) {
 export default function DevicesPage() {
   const { data, error, loading, reload } = useFetch(load);
   const [target, setTarget] = useState<Device | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Device | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
 
   async function revoke() {
@@ -42,6 +43,18 @@ export default function DevicesPage() {
       setRevokeError(String(e));
     }
     setTarget(null);
+  }
+
+  async function remove() {
+    if (!removeTarget) return;
+    try {
+      await apiDelete(`/devices/${removeTarget.id}`);
+      setRevokeError(null);
+      reload();
+    } catch (e) {
+      setRevokeError(String(e));
+    }
+    setRemoveTarget(null);
   }
 
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -74,7 +87,7 @@ export default function DevicesPage() {
 
       {revokeError && (
         <p className="card neg" role="alert" style={{ marginBottom: 12 }}>
-          Could not revoke: {revokeError}
+          Could not update the phone: {revokeError}
         </p>
       )}
 
@@ -113,7 +126,11 @@ export default function DevicesPage() {
                   </span>
                 </div>
               </div>
-              {!d.revoked && (
+              {d.revoked ? (
+                <button className="btn secondary" onClick={() => setRemoveTarget(d)}>
+                  Remove from list
+                </button>
+              ) : (
                 <button className="btn danger-outline" onClick={() => setTarget(d)}>
                   Revoke access
                 </button>
@@ -128,10 +145,14 @@ export default function DevicesPage() {
         <ul className="tips">
           <li>A phone syncs only while this PC is on and both are on the same Wi-Fi.</li>
           <li>Revoke a lost or stolen phone right away. It stops syncing, but records already on it stay there.</li>
-          <li>A revoked phone can be paired again with a new code on the Pair a phone page.</li>
+          <li>A revoked phone can be paired again with a new code on the Pair a phone page, or removed from this list.</li>
         </ul>
       </div>
 
+      <ConfirmDialog open={removeTarget !== null} title="Remove this phone from the list?" confirmLabel="Remove" onConfirm={remove} onCancel={() => setRemoveTarget(null)}>
+        {removeTarget?.label} will disappear from this list. Its sales and expenses stay in your records, but they will no longer show which
+        phone recorded them. To use that phone again, pair it with a new code.
+      </ConfirmDialog>
       <ConfirmDialog open={target !== null} title="Revoke this phone?" confirmLabel="Revoke" onConfirm={revoke} onCancel={() => setTarget(null)}>
         {target?.label} will stop syncing right away. Records already on the phone stay there, and it must be paired again to sync.
       </ConfirmDialog>

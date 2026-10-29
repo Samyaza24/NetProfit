@@ -4,7 +4,7 @@ from datetime import timedelta
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from app.models import Device, PairingCode
+from app.models import Device, OperationalExpense, PairingCode, Transaction
 from app.services.security import generate_device_token, generate_pairing_code, hash_secret
 from app.services.timeutil import utc_now
 
@@ -69,6 +69,14 @@ def exchange_pairing_code(db: Session, code: str, label: str) -> tuple[Device, s
         db, device_id=str(uuid.uuid4()), label=label, token_hash=hash_secret(raw_token)
     )
     return device, raw_token
+
+
+def delete_device(db: Session, device: Device) -> None:
+    """Removes a phone from the list. Its sales and expenses stay, they just stop naming the phone."""
+    db.execute(update(Transaction).where(Transaction.device_id == device.id).values(device_id=None))
+    db.execute(update(OperationalExpense).where(OperationalExpense.device_id == device.id).values(device_id=None))
+    db.delete(device)
+    db.commit()
 
 
 def revoke_device(db: Session, device_id: str) -> Device | None:

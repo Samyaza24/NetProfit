@@ -7,7 +7,7 @@ from app.models import PairingCode
 from app.services.device_service import exchange_pairing_code
 from app.services.timeutil import utc_now
 
-from .conftest import pair
+from .conftest import new_id, pair
 
 
 def test_pair_returns_token_and_lists_device(client):
@@ -53,6 +53,34 @@ def test_raw_code_not_stored(client):
     code = client.post("/api/v1/devices/pairing-code").json()["pairing_code"]
     with SessionLocal() as db:
         assert db.execute(select(PairingCode)).scalar_one().code_hash != code
+
+
+def test_remove_requires_revoke_first(client):
+    paired = pair(client, "old")
+    url = f"/api/v1/devices/{paired['device_id']}"
+    assert client.delete(url).status_code == 409
+    client.post(f"{url}/revoke")
+    assert client.delete(url).status_code == 204
+    assert client.get(url).status_code == 404
+    assert client.delete(url).status_code == 404
+
+
+def test_removed_phone_keeps_its_sales_and_expenses(client):
+    paired = pair(client, "old")
+    auth = {"X-NetProfit-Key": paired["token"]}
+    cid, tid = new_id(), new_id()
+    body = {
+        "customers": [{"id": cid, "name": "Ana"}],
+        "transactions": [{"id": tid, "customer_id": cid, "amount_received": 20, "duration_days": 1, "status": "Paid"}],
+        "expenses": [{"id": new_id(), "description": "fuel", "amount": 5}],
+    }
+    assert client.post("/api/v1/sync", json=body, headers=auth).status_code == 200
+    assert client.get("/api/v1/transactions").json()[0]["device_id"] == paired["device_id"]
+
+    client.post(f"/api/v1/devices/{paired['device_id']}/revoke")
+    assert client.delete(f"/api/v1/devices/{paired['device_id']}").status_code == 204
+    assert [t["device_id"] for t in client.get("/api/v1/transactions").json()] == [None]
+    assert [e["device_id"] for e in client.get("/api/v1/expenses").json()] == [None]
 
 
 def test_overlong_pairing_code_rejected(client):

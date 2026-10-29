@@ -12,9 +12,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const detail = await res.json().then((j) => j.detail, () => null);
     throw new Error(`${method} ${path} failed: ${res.status}${detail ? ` (${detail})` : ""}`);
   }
-  return res.json();
+  return res.status === 204 ? (undefined as T) : res.json();
 }
 
 export const apiGet = <T,>(path: string) => request<T>("GET", path);
 export const apiPost = <T,>(path: string, body?: unknown) => request<T>("POST", path, body);
+export const apiDelete = (path: string) => request<void>("DELETE", path);
 export const apiPatch = <T,>(path: string, body: unknown) => request<T>("PATCH", path, body);

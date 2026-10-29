@@ -54,6 +54,16 @@ def pair_device(data: PairExchangeRequest, db: Session = Depends(get_db)) -> Pai
     return PairExchangeResponse(device_id=device.id, token=raw_token, server_url=server_url)
 
 
+@router.delete("/{device_id}", status_code=204)
+def delete_device(device_id: str, db: Session = Depends(get_db)) -> None:
+    device = device_service.get_device(db, device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if not device.revoked:  # an active phone must be revoked first, so it cannot keep syncing by mistake
+        raise HTTPException(status_code=409, detail="Revoke the phone before removing it")
+    device_service.delete_device(db, device)
+
+
 @router.post("/{device_id}/revoke", response_model=DeviceRead)
 def revoke_device(device_id: str, db: Session = Depends(get_db)) -> DeviceRead:
     device = device_service.revoke_device(db, device_id)
