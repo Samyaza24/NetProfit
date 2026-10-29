@@ -3,11 +3,16 @@ import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-n
 import { createExpense, listRecentDescriptions } from "../db/repo";
 import { friendlyError } from "../lib/errors";
 import { parseAmount } from "../lib/money";
-import { Button, Chip } from "../ui/components";
-import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
+import { Button, Chip, Summary } from "../ui/components";
+import ConfirmDialog from "../ui/ConfirmDialog";
+import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useToast } from "../ui/Toast";
 
 export default function ExpenseScreen() {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
+  const [review, setReview] = useState<number | null>(null); // the amount waiting for confirmation
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
@@ -21,8 +26,8 @@ export default function ExpenseScreen() {
     listRecentDescriptions().then(setRecent);
   }, []);
 
-  async function submit() {
-    if (busy.current) return; // a ref, so a fast double tap cannot save twice
+  // Step 1: check the form and show the summary; nothing is saved until the operator confirms.
+  function ask() {
     const parsedAmount = parseAmount(amount);
     if (!description.trim()) {
       setError("Type what the money was spent on.");
@@ -32,16 +37,25 @@ export default function ExpenseScreen() {
       setError("Enter an amount like 200 or 1,200.50.");
       return;
     }
+    setError(null);
+    Keyboard.dismiss();
+    setReview(parsedAmount);
+  }
+
+  // Step 2: confirmed. The ref keeps a fast double tap from saving twice.
+  async function save() {
+    if (busy.current || review === null) return;
     busy.current = true;
     setSaving(true);
-    setError(null);
     try {
-      await createExpense(description.trim(), parsedAmount);
-      showToast(`Saved - ${description.trim()}, ${formatPHP(parsedAmount)}`);
+      await createExpense(description.trim(), review);
+      showToast(`Saved - ${description.trim()}, ${formatPHP(review)}`);
+      setReview(null);
       setDescription("");
       setAmount("");
       listRecentDescriptions().then(setRecent);
     } catch (e) {
+      setReview(null);
       setError(friendlyError(e).message);
     } finally {
       busy.current = false;
@@ -90,14 +104,26 @@ export default function ExpenseScreen() {
           {error}
         </Text>
       )}
-      <Button title="Save expense" icon="checkmark" onPress={submit} loading={saving} />
+      <Button title="Save expense" icon="checkmark" onPress={ask} loading={saving} />
     </ScrollView>
     {toast}
+
+    <ConfirmDialog
+      visible={review !== null}
+      title="Save this expense?"
+      confirmLabel="Confirm and save"
+      icon="checkmark-circle-outline"
+      busy={saving}
+      onConfirm={save}
+      onCancel={() => setReview(null)}
+    >
+      <Summary rows={[["Description", description.trim()], ["Amount", formatPHP(review ?? 0)]]} />
+    </ConfirmDialog>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   root: { flex: 1 },
   container: { padding: space.lg, gap: space.md },
   label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },

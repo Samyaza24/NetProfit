@@ -4,7 +4,8 @@ import { onDataChange } from "../db/events";
 import { HistoryRow, listHistory, parseTs } from "../db/repo";
 import { formatDateTime, tierName } from "../lib/format";
 import { Badge, Button, EmptyState, ErrorState } from "../ui/components";
-import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
+import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useLoad } from "../ui/useLoad";
 
 const PAGE = 50;
@@ -22,6 +23,8 @@ function dayHeading(timestamp: string): string {
 }
 
 export default function HistoryScreen({ active = true }: { active?: boolean }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -127,7 +130,7 @@ export default function HistoryScreen({ active = true }: { active?: boolean }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   loading: { marginTop: space.xl },
   container: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.md },
   search: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },

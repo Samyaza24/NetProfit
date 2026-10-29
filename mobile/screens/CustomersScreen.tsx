@@ -6,7 +6,8 @@ import { plural } from "../lib/format";
 import { Badge, Chip, EmptyState, ErrorState } from "../ui/components";
 import { useLoad } from "../ui/useLoad";
 import Icon from "../ui/Icon";
-import { colors, formatPHP, radius, shadow, space, TOUCH, type } from "../ui/theme";
+import { formatPHP, Palette, radius, shadow, space, TOUCH, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 import CustomerDetailScreen from "./CustomerDetailScreen";
 
 const load = async () => {
@@ -15,6 +16,8 @@ const load = async () => {
 };
 
 export default function CustomersScreen({ active = true, onSellAgain }: { active?: boolean; onSellAgain?: (name: string, days: number) => void }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
   const [connFilter, setConnFilter] = useState<"all" | "connected" | "cutoff">("all");
@@ -139,7 +142,7 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   loading: { marginTop: space.xl },
   container: { flex: 1, padding: space.lg, gap: space.sm },
   search: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },

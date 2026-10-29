@@ -8,7 +8,8 @@ import { fetchWithTimeout } from "../lib/http";
 import { storeCredentials } from "../sync/syncClient";
 import { Button } from "../ui/components";
 import Logo from "../ui/Logo";
-import { colors, radius, space, TOUCH, type } from "../ui/theme";
+import { Palette, radius, space, TOUCH, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 
 interface Props {
   onPaired: () => void;
@@ -19,6 +20,8 @@ interface Props {
 type Step = "home" | "scan" | "manual" | "confirm";
 
 export default function PairScreen({ onPaired, onCancel }: Props) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep] = useState<Step>("home");
@@ -196,7 +199,7 @@ export default function PairScreen({ onPaired, onCancel }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   flex: { flex: 1 },
   container: { flexGrow: 1, justifyContent: "center", padding: space.xl, gap: space.md },
   logo: { alignItems: "center", marginBottom: space.lg },

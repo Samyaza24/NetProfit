@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text } from "react-native";
-import { colors, radius, space, type } from "./theme";
+import { Palette, radius, space, type } from "./theme";
+import { useStyles } from "./ThemeContext";
 import { useReducedMotion } from "./useReducedMotion";
 
 function ToastView({ message, ms }: { message: string; ms: number }) {
+  const s = useStyles(makeStyles);
   const reduced = useReducedMotion();
   const v = useRef(new Animated.Value(reduced ? 1 : 0)).current;
 
@@ -55,7 +57,7 @@ export function useToast(ms = 2500) {
   return [node, show] as const;
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   toast: { position: "absolute", left: space.lg, right: space.lg, top: space.sm, backgroundColor: colors.success, borderRadius: radius.md, padding: space.md },
   text: { color: colors.primaryText, fontSize: type.body, fontWeight: "600", textAlign: "center" },
 });

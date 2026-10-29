@@ -4,11 +4,14 @@ import { onDataChange } from "../db/events";
 import { countUnsynced } from "../db/repo";
 import Icon from "./Icon";
 import Logo from "./Logo";
-import { colors, space, TOUCH, type } from "./theme";
+import { Palette, space, TOUCH, type } from "./theme";
+import { useTheme, useStyles } from "./ThemeContext";
 import { useReducedMotion } from "./useReducedMotion";
 
 // Brand plus always-visible sync state; recounts whenever local data changes.
 export default function StatusStrip({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const [pending, setPending] = useState(0);
   const reduced = useReducedMotion();
   const pulse = useRef(new Animated.Value(1)).current;
@@ -56,7 +59,7 @@ export default function StatusStrip({ onPress }: { onPress: () => void }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   strip: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.lg, paddingVertical: space.sm, backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
   status: { minHeight: TOUCH, flexDirection: "row", alignItems: "center", gap: space.sm, paddingLeft: space.md },
   text: { fontSize: type.small, fontWeight: "600" },

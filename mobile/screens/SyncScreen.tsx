@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 import { countUnsynced, parseTs } from "../db/repo";
 import { getMeta } from "../db/schema";
 import { shortAddress } from "../lib/address";
 import { friendlyError } from "../lib/errors";
 import { formatDateTime, plural } from "../lib/format";
 import { AuthError, isSyncing, SyncResult, syncNow } from "../sync/syncClient";
-import { Button, Card } from "../ui/components";
+import { Button, Card, Segmented } from "../ui/components";
+import ConfirmDialog from "../ui/ConfirmDialog";
 import Icon from "../ui/Icon";
-import { colors, space, type } from "../ui/theme";
+import { Palette, space, type } from "../ui/theme";
+import { ThemePref, useStyles, useTheme } from "../ui/ThemeContext";
 import ExportCard from "./ExportCard";
 import ResetCard from "./ResetCard";
 
@@ -19,7 +21,16 @@ interface Props {
 
 type Outcome = { kind: "ok"; result: SyncResult } | { kind: "auth" } | { kind: "error"; message: string; details: string };
 
+const THEME_OPTIONS: [ThemePref, string][] = [
+  ["system", "System"],
+  ["light", "Light"],
+  ["dark", "Dark"],
+];
+
 export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
+  const { colors, pref, setPref } = useTheme();
+  const s = useStyles(makeStyles);
+  const [askRePair, setAskRePair] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [server, setServer] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
@@ -117,29 +128,42 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
           If the PC's Wi-Fi or address changed and sync cannot connect, pair again with the QR code on the PC. Records on this
           phone are kept.
         </Text>
-        <Button
-          title="Pair again"
-          variant="secondary"
-          onPress={() =>
-            Alert.alert("Pair this phone again?", "Only pair with your shop PC. Records on this phone stay and sync after pairing.", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Pair again", onPress: onNeedsRePair },
-            ])
-          }
-        />
+        <Button title="Pair again" variant="secondary" onPress={() => setAskRePair(true)} />
+      </Card>
+
+      <Card>
+        <Text style={s.big} accessibilityRole="header">
+          Appearance
+        </Text>
+        <Segmented label="Appearance" options={THEME_OPTIONS} value={pref} onChange={setPref} />
+        <Text style={s.muted}>System follows your phone's light or dark setting.</Text>
       </Card>
 
       <ExportCard />
       <ResetCard />
+
+      <ConfirmDialog
+        visible={askRePair}
+        title="Pair this phone again?"
+        confirmLabel="Pair again"
+        onConfirm={() => {
+          setAskRePair(false);
+          onNeedsRePair();
+        }}
+        onCancel={() => setAskRePair(false)}
+      >
+        Only pair with your shop PC. Records on this phone stay and sync after pairing.
+      </ConfirmDialog>
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
-  container: { padding: space.lg, gap: space.md },
-  big: { fontSize: type.title, fontWeight: "700", color: colors.text },
-  line: { fontSize: type.body, color: colors.text },
-  muted: { fontSize: type.small, color: colors.muted },
-  ok: { fontSize: type.title, fontWeight: "700", color: colors.success },
-  err: { fontSize: type.title, fontWeight: "700", color: colors.danger },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    container: { padding: space.lg, gap: space.md },
+    big: { fontSize: type.title, fontWeight: "700", color: colors.text },
+    line: { fontSize: type.body, color: colors.text },
+    muted: { fontSize: type.small, color: colors.muted },
+    ok: { fontSize: type.title, fontWeight: "700", color: colors.success },
+    err: { fontSize: type.title, fontWeight: "700", color: colors.danger },
+  });

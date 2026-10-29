@@ -1,11 +1,13 @@
-import { useCallback } from "react";
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import { CustomerSummary, getCustomer, listCustomerTransactions, markTransactionPaid, parseTs, setCustomerStatus, Transaction } from "../db/repo";
 import { connectionOf, cutoffText } from "../lib/connection";
 import { friendlyError } from "../lib/errors";
 import { formatDateTime, plural, tierName } from "../lib/format";
 import { Badge, Button, Card, EmptyState, ErrorState } from "../ui/components";
-import { colors, formatPHP, space, type } from "../ui/theme";
+import ConfirmDialog from "../ui/ConfirmDialog";
+import { formatPHP, Palette, space, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useLoad } from "../ui/useLoad";
 
 interface Props {
@@ -15,7 +17,14 @@ interface Props {
   onSellAgain?: (days: number) => void;
 }
 
+// The change waiting for the operator's confirmation.
+type Ask = { kind: "status"; status: "Active" | "Disabled" } | { kind: "paid"; txn: Transaction };
+
 export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: Props) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const fetchData = useCallback(async () => {
     const [rows, c] = await Promise.all([listCustomerTransactions(customer.id), getCustomer(customer.id)]);
     return { rows, manualAt: c?.status === "Disabled" ? parseTs(c.updated_at).getTime() : null };
@@ -26,40 +35,14 @@ export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: 
 
   // Runs a change, then reloads; a failure tells the operator instead of failing silently.
   async function run(change: () => Promise<void>) {
+    setAsk(null);
     try {
       await change();
+      setActionError(null);
       load();
     } catch (e) {
-      Alert.alert("Could not save the change", friendlyError(e).message);
+      setActionError(friendlyError(e).message);
     }
-  }
-
-  function changeStatus(status: "Active" | "Disabled") {
-    const cut = status === "Disabled";
-    Alert.alert(
-      cut ? `Cut off ${customer.name}?` : `Reconnect ${customer.name}?`,
-      cut
-        ? "This marks them as cut off in NetProfit right now. You still need to disconnect them on your Wi-Fi router. Buying a new plan reconnects them automatically."
-        : "This undoes the manual cut-off, so their status follows their plan again. Remember to turn their Wi-Fi back on in your router.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: cut ? "Cut off now" : "Reconnect",
-          style: cut ? "destructive" : "default",
-          onPress: () => run(() => setCustomerStatus(customer.id, status)),
-        },
-      ]
-    );
-  }
-
-  function confirmPaid(t: Transaction) {
-    Alert.alert("Mark as paid?", `${tierName(t.duration_days)} - ${formatPHP(t.amount_received)}. This cannot be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Mark paid",
-        onPress: () => run(() => markTransactionPaid(t.id)),
-      },
-    ]);
   }
 
   // Totals come from the loaded rows so they update right after marking something paid.
@@ -76,6 +59,8 @@ export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: 
     );
   }
 
+  const cutting = ask?.kind === "status" && ask.status === "Disabled";
+
   return (
     <View style={s.container}>
       <Button title="Back to clients" icon="chevron-back" variant="secondary" onPress={onBack} />
@@ -91,11 +76,16 @@ export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: 
         <Text style={s.line}>Total spent: {formatPHP(paid)}</Text>
         {owes > 0 && <Text style={s.debt}>Owes {formatPHP(owes)}</Text>}
       </Card>
+      {actionError && (
+        <Text style={s.error} accessibilityRole="alert">
+          Could not save the change: {actionError}
+        </Text>
+      )}
       {onSellAgain && rows.length > 0 && (
         <Button title={`Sell again - ${tierName(rows[0].duration_days)}`} icon="add-circle-outline" onPress={() => onSellAgain(rows[0].duration_days)} />
       )}
-      {conn.state === "connected" && <Button title="Cut off now" icon="close-circle-outline" variant="secondary" onPress={() => changeStatus("Disabled")} />}
-      {conn.manual && <Button title="Reconnect" icon="checkmark-circle-outline" onPress={() => changeStatus("Active")} />}
+      {conn.state === "connected" && <Button title="Cut off now" icon="close-circle-outline" variant="secondary" onPress={() => setAsk({ kind: "status", status: "Disabled" })} />}
+      {conn.manual && <Button title="Reconnect" icon="checkmark-circle-outline" onPress={() => setAsk({ kind: "status", status: "Active" })} />}
       {conn.state === "cutoff" && !conn.manual && <Text style={s.muted}>The plan has ended. Buying a new plan reconnects them.</Text>}
       <FlatList
         data={rows}
@@ -115,25 +105,50 @@ export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: 
               {item.status === "Paid" ? (
                 <Badge label="Paid" color={colors.success} />
               ) : (
-                <Button title="Mark paid" icon="checkmark-circle-outline" variant="secondary" onPress={() => confirmPaid(item)} />
+                <Button title="Mark paid" icon="checkmark-circle-outline" variant="secondary" onPress={() => setAsk({ kind: "paid", txn: item })} />
               )}
             </View>
           </View>
         )}
       />
+
+      <ConfirmDialog
+        visible={ask?.kind === "status"}
+        title={cutting ? `Cut off ${customer.name}?` : `Reconnect ${customer.name}?`}
+        confirmLabel={cutting ? "Cut off now" : "Reconnect"}
+        tone={cutting ? "danger" : "primary"}
+        onConfirm={() => ask?.kind === "status" && run(() => setCustomerStatus(customer.id, ask.status))}
+        onCancel={() => setAsk(null)}
+      >
+        {cutting
+          ? "This marks them as cut off in NetProfit right now. You still need to disconnect them on your Wi-Fi router. Buying a new plan reconnects them automatically."
+          : "This undoes the manual cut-off, so their status follows their plan again. Remember to turn their Wi-Fi back on in your router."}
+      </ConfirmDialog>
+      <ConfirmDialog
+        visible={ask?.kind === "paid"}
+        title="Mark as paid?"
+        confirmLabel="Mark paid"
+        icon="checkmark-circle-outline"
+        onConfirm={() => ask?.kind === "paid" && run(() => markTransactionPaid(ask.txn.id))}
+        onCancel={() => setAsk(null)}
+      >
+        {ask?.kind === "paid" ? `${tierName(ask.txn.duration_days)} - ${formatPHP(ask.txn.amount_received)}. This cannot be undone.` : ""}
+      </ConfirmDialog>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, padding: space.lg, gap: space.md },
-  name: { fontSize: type.big, fontWeight: "700", color: colors.text },
-  line: { fontSize: type.body, color: colors.text },
-  status: { fontWeight: "700" },
-  debt: { fontSize: type.body, fontWeight: "700", color: colors.danger },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  rowMain: { flex: 1 },
-  rowEnd: { alignItems: "flex-end", gap: space.xs },
-  rowTitle: { fontSize: type.body, fontWeight: "600", color: colors.text },
-  muted: { fontSize: type.small, color: colors.muted },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    container: { flex: 1, padding: space.lg, gap: space.md },
+    name: { fontSize: type.big, fontWeight: "700", color: colors.text },
+    line: { fontSize: type.body, color: colors.text },
+    status: { fontWeight: "700" },
+    debt: { fontSize: type.body, fontWeight: "700", color: colors.danger },
+    error: { fontSize: type.body, fontWeight: "600", color: colors.danger },
+    row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+    rowMain: { flex: 1 },
+    rowEnd: { alignItems: "flex-end", gap: space.xs },
+    rowTitle: { fontSize: type.body, fontWeight: "600", color: colors.text },
+    muted: { fontSize: type.small, color: colors.muted },
+  });

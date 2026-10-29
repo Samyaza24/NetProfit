@@ -1,7 +1,8 @@
 import { ReactNode, useRef } from "react";
 import { ActivityIndicator, Animated, Pressable, PressableProps, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import Icon, { IconName } from "./Icon";
-import { colors, radius, shadow, space, TOUCH, type } from "./theme";
+import { Palette, radius, shadow, space, TOUCH, type } from "./theme";
+import { useStyles, useTheme } from "./ThemeContext";
 import { useReducedMotion } from "./useReducedMotion";
 
 interface ButtonProps {
@@ -44,6 +45,8 @@ function ScalePressable({ contentStyle, children, onPressIn, onPressOut, ...rest
 }
 
 export function Button({ title, onPress, variant = "primary", disabled, loading, icon }: ButtonProps) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const primary = variant !== "secondary"; // filled buttons use white text
   return (
     <ScalePressable
@@ -71,6 +74,7 @@ export function Button({ title, onPress, variant = "primary", disabled, loading,
 }
 
 export function Card({ children }: { children: ReactNode }) {
+  const s = useStyles(makeStyles);
   return <View style={s.card}>{children}</View>;
 }
 
@@ -85,6 +89,8 @@ interface ChipProps {
 }
 
 export function Chip({ label, selected, onPress, role = "button", sub }: ChipProps) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const on = selected ? { color: colors.primaryText } : null;
   return (
     <ScalePressable
@@ -117,6 +123,8 @@ interface SegmentedProps<T extends string> {
 }
 
 export function Segmented<T extends string>({ options, value, onChange, compact, label }: SegmentedProps<T>) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   return (
     <View style={s.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {options.map(([key, label]) => (
@@ -134,16 +142,35 @@ export function Segmented<T extends string>({ options, value, onChange, compact,
   );
 }
 
-export function Badge({ label, color = colors.danger }: { label: string; color?: string }) {
+export function Badge({ label, color }: { label: string; color?: string }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   return (
-    <View style={[s.badge, { backgroundColor: color }]}>
+    <View style={[s.badge, { backgroundColor: color ?? colors.danger }]}>
       <Text style={s.badgeText}>{label}</Text>
+    </View>
+  );
+}
+
+// Label and value lines inside a confirmation, for example the details of a sale about to be saved.
+export function Summary({ rows }: { rows: [string, string][] }) {
+  const s = useStyles(makeStyles);
+  return (
+    <View style={s.summary}>
+      {rows.map(([label, value]) => (
+        <View key={label} style={s.summaryRow}>
+          <Text style={s.summaryLabel}>{label}</Text>
+          <Text style={s.summaryValue}>{value}</Text>
+        </View>
+      ))}
     </View>
   );
 }
 
 // Shown instead of a screen's content when loading failed; always offers a way to try again.
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   return (
     <View style={s.emptyWrap} accessibilityRole="alert">
       <Icon name="alert-circle-outline" size={40} color={colors.danger} />
@@ -154,6 +181,8 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
 }
 
 export function EmptyState({ text, icon = "file-tray-outline" }: { text: string; icon?: IconName }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   return (
     <View style={s.emptyWrap}>
       <Icon name={icon} size={40} color={colors.muted} />
@@ -162,7 +191,7 @@ export function EmptyState({ text, icon = "file-tray-outline" }: { text: string;
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   button: { minHeight: TOUCH, borderRadius: radius.md, alignItems: "center", justifyContent: "center", paddingHorizontal: space.lg },
   buttonPrimary: { backgroundColor: colors.primary },
   buttonDanger: { backgroundColor: colors.danger },
@@ -182,6 +211,10 @@ const s = StyleSheet.create({
   badge: { alignSelf: "flex-start", paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.sm },
   badgeText: { color: colors.primaryText, fontSize: type.small, fontWeight: "700" },
   buttonContent: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  summary: { gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.surface },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.md },
+  summaryLabel: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
+  summaryValue: { flexShrink: 1, fontSize: type.body, fontWeight: "700", color: colors.text, textAlign: "right" },
   emptyWrap: { alignItems: "center", gap: space.sm, marginTop: space.xl },
   empty: { textAlign: "center", color: colors.muted, fontSize: type.body },
 });

@@ -15,7 +15,8 @@ import SyncScreen from "./screens/SyncScreen";
 import FadeIn from "./ui/FadeIn";
 import StatusStrip from "./ui/StatusStrip";
 import TabBar from "./ui/TabBar";
-import { colors } from "./ui/theme";
+import { Palette } from "./ui/theme";
+import { ThemeProvider, useStyles, useTheme } from "./ui/ThemeContext";
 import { useKeyboardVisible } from "./ui/useKeyboardVisible";
 import { ReducedMotionProvider } from "./ui/useReducedMotion";
 import { isPaired, syncNow } from "./sync/syncClient";
@@ -34,15 +35,19 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ReducedMotionProvider>
-        <ErrorBoundary>
-          <AppRoot />
-        </ErrorBoundary>
+        <ThemeProvider>
+          <ErrorBoundary>
+            <AppRoot />
+          </ErrorBoundary>
+        </ThemeProvider>
       </ReducedMotionProvider>
     </SafeAreaProvider>
   );
 }
 
 function AppRoot() {
+  const styles = useStyles(makeStyles);
+  const { dark } = useTheme();
   const insets = useSafeAreaInsets();
   const [paired, setPaired] = useState<boolean | null>(null);
   const [pairingAgain, setPairingAgain] = useState(false); // true when pairing was chosen from the Sync tab, so Cancel can go back
@@ -108,7 +113,7 @@ function AppRoot() {
               : undefined
           }
         />
-        <StatusBar style="auto" />
+        <StatusBar style={dark ? "light" : "dark"} />
       </View>
     );
   }
@@ -156,12 +161,12 @@ function AppRoot() {
         ) : null
       )}
       {!keyboardUp && <TabBar tabs={TABS} active={screen} onChange={go} />}
-      <StatusBar style="auto" />
+      <StatusBar style={dark ? "light" : "dark"} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   body: { flex: 1 },
   hidden: { display: "none" },

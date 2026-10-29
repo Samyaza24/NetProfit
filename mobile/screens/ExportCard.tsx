@@ -4,12 +4,14 @@ import { friendlyError } from "../lib/errors";
 import { ExportRange, shareDatabaseBackup, shareExpensesCsv, shareSalesCsv } from "../lib/exporter";
 import { plural } from "../lib/format";
 import { Button, Card, Segmented } from "../ui/components";
-import { colors, space, type } from "../ui/theme";
+import { Palette, space, type } from "../ui/theme";
+import { useStyles } from "../ui/ThemeContext";
 
 type Job = "sales" | "expenses" | "backup";
 
 // Share sales or expenses as a spreadsheet file, or a full backup, through the phone's share sheet.
 export default function ExportCard() {
+  const s = useStyles(makeStyles);
   const [range, setRange] = useState<ExportRange>("month");
   const [busy, setBusy] = useState<Job | null>(null);
   const [result, setResult] = useState<{ text: string; ok: boolean } | null>(null);
@@ -79,7 +81,7 @@ export default function ExportCard() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   title: { fontSize: type.title, fontWeight: "700", color: colors.text },
   muted: { fontSize: type.small, color: colors.muted, marginBottom: space.xs },
   ok: { fontSize: type.small, color: colors.success, fontWeight: "600" },

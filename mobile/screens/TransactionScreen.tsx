@@ -13,8 +13,10 @@ import {
 } from "../db/repo";
 import { onDataChange } from "../db/events";
 import { getMeta, setMeta } from "../db/schema";
-import { Badge, Button, Chip, Segmented } from "../ui/components";
-import { colors, formatPHP, radius, space, TOUCH, type } from "../ui/theme";
+import { Badge, Button, Chip, Segmented, Summary } from "../ui/components";
+import ConfirmDialog from "../ui/ConfirmDialog";
+import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useToast } from "../ui/Toast";
 import { useKeyboardVisible } from "../ui/useKeyboardVisible";
 
@@ -35,13 +37,16 @@ export interface Prefill {
 }
 
 export default function TransactionScreen({ prefill }: { prefill?: Prefill | null }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const [name, setName] = useState("");
   const [recent, setRecent] = useState<RecentCustomer[]>([]);
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [existing, setExisting] = useState<Customer | null>(null);
   const [tier, setTier] = useState(TIERS[0]);
   const [status, setStatus] = useState<Status>("Paid");
-  const [confirmDup, setConfirmDup] = useState(false);
+  // The sale waiting for the operator to confirm; dup is true when the same client just bought the same plan.
+  const [review, setReview] = useState<{ customer: Customer | null; dup: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
@@ -80,9 +85,8 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
     return onDataChange(load);
   }, []);
 
-  // Any change to the form clears the "save again?" warning and the last error.
+  // Any change to the form clears the last error.
   useEffect(() => {
-    setConfirmDup(false);
     setError(null);
   }, [name, tier, status]);
 
@@ -112,8 +116,9 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
     };
   }, [name]);
 
-  async function submit() {
-    if (busy.current) return; // a ref, so a fast double tap cannot save twice or create a duplicate client
+  // Step 1: check the form and show the summary; nothing is saved until the operator confirms.
+  async function ask() {
+    if (busy.current) return; // a ref, so a fast double tap cannot open it twice
     const clean = name.trim();
     if (!clean) {
       setError("Type the client's name first.");
@@ -123,18 +128,34 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
     setSaving(true);
     setError(null);
     try {
-      let customer = existing ?? (await findCustomerByName(clean));
-      if (customer && !confirmDup && (await hasRecentTransaction(customer.id, tier.days))) {
-        setConfirmDup(true);
-        return;
-      }
-      if (!customer) customer = await createLocalCustomer(clean);
+      const customer = existing ?? (await findCustomerByName(clean));
+      const dup = customer ? await hasRecentTransaction(customer.id, tier.days) : false;
+      Keyboard.dismiss();
+      setReview({ customer, dup });
+    } catch (e) {
+      setError(friendlyError(e).message);
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
+  }
+
+  // Step 2: the operator confirmed, so save. The ref keeps a fast double tap from saving twice or creating two clients.
+  async function save() {
+    if (busy.current || !review) return;
+    const clean = name.trim();
+    busy.current = true;
+    setSaving(true);
+    try {
+      const customer = review.customer ?? (await findCustomerByName(clean)) ?? (await createLocalCustomer(clean));
       await createTransaction(customer.id, tier.amount, tier.days, status);
       await setMeta("last_tier_days", String(tier.days));
       showToast(`Saved - ${customer.name}, ${formatPHP(tier.amount)} (${status})`);
+      setReview(null);
       setName("");
       input.current?.focus();
     } catch (e) {
+      setReview(null);
       setError(friendlyError(e).message);
     } finally {
       busy.current = false;
@@ -228,29 +249,37 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         onChange={setStatus}
       />
 
-      {confirmDup && (
-        <Text style={s.warn} accessibilityRole="alert">
-          {name.trim()} already has this tier in the last 2 minutes. Save again?
-        </Text>
-      )}
       {error && (
         <Text style={s.error} accessibilityRole="alert">
           {error}
         </Text>
       )}
-      <Button
-        icon="checkmark"
-        title={confirmDup ? "Yes, record again" : `Save ${formatPHP(tier.amount)}`}
-        onPress={submit}
-        loading={saving}
-      />
+      <Button icon="checkmark" title={`Save ${formatPHP(tier.amount)}`} onPress={ask} loading={saving} />
     </ScrollView>
     {toast}
+
+    <ConfirmDialog
+      visible={review !== null}
+      title={review?.customer ? "Save this sale?" : "Add new client and save?"}
+      confirmLabel="Confirm and save"
+      icon="checkmark-circle-outline"
+      busy={saving}
+      onConfirm={save}
+      onCancel={() => setReview(null)}
+    >
+      <Summary rows={[["Client", name.trim()], ["Plan", tier.label], ["Amount", formatPHP(tier.amount)], ["Payment", status]]} />
+      {review && !review.customer && <Badge label="New client" color={colors.warning} />}
+      {review?.dup && (
+        <Text style={s.warn} accessibilityRole="alert">
+          {name.trim()} already bought this plan in the last 2 minutes. Only confirm if it is a second sale.
+        </Text>
+      )}
+    </ConfirmDialog>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   root: { flex: 1 },
   container: { padding: space.lg, gap: space.md },
   // Used only when the roomy layout would not fit the screen without scrolling.
@@ -261,6 +290,6 @@ const s = StyleSheet.create({
   tiers: { flexDirection: "row", gap: space.sm },
   tiersTight: { gap: space.xs },
   tierCell: { flex: 1 },
-  warn: { color: colors.warning, fontWeight: "600" },
+  warn: { color: colors.warning, fontWeight: "600", textAlign: "center" },
   error: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
 });

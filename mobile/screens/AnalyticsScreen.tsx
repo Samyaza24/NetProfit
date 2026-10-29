@@ -3,7 +3,8 @@ import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleP
 import { getDailyReceived, getTotals } from "../db/repo";
 import { Card, ErrorState } from "../ui/components";
 import CountUp from "../ui/CountUp";
-import { colors, formatPHP, radius, space, type } from "../ui/theme";
+import { formatPHP, Palette, radius, space, type } from "../ui/theme";
+import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useLoad } from "../ui/useLoad";
 import { useReducedMotion } from "../ui/useReducedMotion";
 
@@ -47,6 +48,8 @@ const load = async () => {
 };
 
 export default function AnalyticsScreen({ active = true }: { active?: boolean }) {
+  const { colors } = useTheme();
+  const s = useStyles(makeStyles);
   const { data, error, refreshing, reload } = useLoad(load, active);
   if (error && !data) return <ErrorState message={error} onRetry={reload} />;
   if (!data) return <ActivityIndicator style={s.loading} color={colors.primary} />;
@@ -115,7 +118,7 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   loading: { marginTop: space.xl },
   container: { padding: space.lg, gap: space.md },
   title: { fontSize: type.title, fontWeight: "700", color: colors.text, marginBottom: space.xs },

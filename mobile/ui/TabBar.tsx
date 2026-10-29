@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon, { IconName } from "./Icon";
-import { colors, space, TOUCH, type } from "./theme";
+import { Palette, space, TOUCH, type } from "./theme";
+import { useStyles, useTheme } from "./ThemeContext";
 import { useReducedMotion } from "./useReducedMotion";
 
 interface Props<T extends string> {
@@ -12,6 +13,7 @@ interface Props<T extends string> {
 }
 
 function TabIcon({ name, on }: { name: string; on: boolean }) {
+  const { colors } = useTheme();
   const reduced = useReducedMotion();
   const scale = useRef(new Animated.Value(on ? 1.1 : 1)).current;
 
@@ -30,6 +32,7 @@ function TabIcon({ name, on }: { name: string; on: boolean }) {
 
 // Each tab names an Ionicons base icon; the outline variant shows when inactive.
 export default function TabBar<T extends string>({ tabs, active, onChange }: Props<T>) {
+  const s = useStyles(makeStyles);
   const reduced = useReducedMotion();
   const [width, setWidth] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
@@ -77,12 +80,13 @@ export default function TabBar<T extends string>({ tabs, active, onChange }: Pro
   );
 }
 
-const s = StyleSheet.create({
-  // The bottom padding comes from the device's safe-area inset (gesture bar, home indicator).
-  bar: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg },
-  tab: { flex: 1, minHeight: TOUCH + 8, alignItems: "center", justifyContent: "center", gap: 2 },
-  indicatorBox: { position: "absolute", top: 0, left: 0, alignItems: "center" },
-  indicator: { width: 32, height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3, backgroundColor: colors.primary },
-  label: { fontSize: type.small, fontWeight: "600", color: colors.muted },
-  labelActive: { color: colors.primary },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    // The bottom padding comes from the device's safe-area inset (gesture bar, home indicator).
+    bar: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg },
+    tab: { flex: 1, minHeight: TOUCH + 8, alignItems: "center", justifyContent: "center", gap: 2 },
+    indicatorBox: { position: "absolute", top: 0, left: 0, alignItems: "center" },
+    indicator: { width: 32, height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3, backgroundColor: colors.primary },
+    label: { fontSize: type.small, fontWeight: "600", color: colors.muted },
+    labelActive: { color: colors.primary },
+  });
