@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.config import settings
+from app.dashboard_static import mount_dashboard
 from app.database import init_db
 
 logger = logging.getLogger("netprofit")
@@ -29,6 +30,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+mount_dashboard(app)  # last, so every API route above keeps priority
 
 
 @app.exception_handler(Exception)
