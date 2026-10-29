@@ -204,9 +204,12 @@ export async function markSynced(
 
 // Expenses never change after they are written, so there is nothing to race with.
 export async function markExpensesSynced(ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
   const db = await getDb();
-  await db.runAsync(`UPDATE expenses SET synced = 1 WHERE id IN (${ids.map(() => "?").join(",")})`, ...ids);
+  // Groups of 500 keep each statement well under SQLite's limit on bound values.
+  for (let i = 0; i < ids.length; i += 500) {
+    const part = ids.slice(i, i + 500);
+    await db.runAsync(`UPDATE expenses SET synced = 1 WHERE id IN (${part.map(() => "?").join(",")})`, ...part);
+  }
 }
 
 export async function upsertCustomer(customer: {
