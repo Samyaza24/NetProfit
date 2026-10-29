@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     device_token_signing_key: str = Field(min_length=32)
 
     database_path: str = "data/netprofit.db"
+    # Optional second place for backups, such as a USB drive or a synced folder.
+    backup_copy_dir: str | None = None
     api_v1_prefix: str = "/api/v1"
     server_port: int = 8001
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8001"]
