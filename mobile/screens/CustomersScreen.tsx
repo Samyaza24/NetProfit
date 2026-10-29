@@ -84,6 +84,7 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
       <TextInput
         style={s.search}
         placeholder="Search clients"
+        placeholderTextColor={colors.placeholder}
         value={query}
         onChangeText={setQuery}
         autoCorrect={false}

@@ -12,11 +12,13 @@ import { colors, radius, space, TOUCH, type } from "../ui/theme";
 
 interface Props {
   onPaired: () => void;
+  // Set when the phone is already paired and the operator chose to pair again, so they can back out.
+  onCancel?: () => void;
 }
 
 type Step = "home" | "scan" | "manual" | "confirm";
 
-export default function PairScreen({ onPaired }: Props) {
+export default function PairScreen({ onPaired, onCancel }: Props) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep] = useState<Step>("home");
@@ -145,7 +147,8 @@ export default function PairScreen({ onPaired }: Props) {
             style={s.input}
             value={typedUrl}
             onChangeText={setTypedUrl}
-            placeholder="http://192.168.1.5:8001/api/v1"
+            placeholder="Example: http://192.168.1.5:8001/api/v1"
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -156,6 +159,8 @@ export default function PairScreen({ onPaired }: Props) {
             style={s.input}
             value={typedCode}
             onChangeText={setTypedCode}
+            placeholder="Paste or type the code"
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="none"
             autoCorrect={false}
             accessibilityLabel="Pairing code"
@@ -186,6 +191,7 @@ export default function PairScreen({ onPaired }: Props) {
       )}
       <Button title="Scan pairing QR" icon="qr-code-outline" onPress={startScan} />
       <Button title="Type the details instead" variant="secondary" onPress={() => setStep("manual")} />
+      {onCancel && <Button title="Cancel" variant="secondary" onPress={onCancel} />}
     </View>
   );
 }

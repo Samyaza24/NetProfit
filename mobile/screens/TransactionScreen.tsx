@@ -167,6 +167,7 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         value={name}
         onChangeText={setName}
         placeholder="Type a name"
+        placeholderTextColor={colors.placeholder}
         autoCapitalize="words"
         autoCorrect={false}
         maxLength={80}

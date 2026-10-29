@@ -58,6 +58,7 @@ export default function ExpenseScreen() {
         value={description}
         onChangeText={setDescription}
         placeholder="Wifi Bill"
+        placeholderTextColor={colors.placeholder}
         autoCorrect={false}
         maxLength={100}
         returnKeyType="next"
@@ -79,6 +80,7 @@ export default function ExpenseScreen() {
         onChangeText={setAmount}
         keyboardType="decimal-pad"
         placeholder="200"
+        placeholderTextColor={colors.placeholder}
         returnKeyType="done"
         onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Expense amount"

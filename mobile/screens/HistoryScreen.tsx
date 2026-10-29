@@ -62,6 +62,7 @@ export default function HistoryScreen({ active = true }: { active?: boolean }) {
         value={query}
         onChangeText={setQuery}
         placeholder="Search by client or expense"
+        placeholderTextColor={colors.placeholder}
         autoCorrect={false}
         returnKeyType="search"
         accessibilityLabel="Search history"

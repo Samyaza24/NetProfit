@@ -80,6 +80,7 @@ export default function ResetCard() {
               autoCapitalize="characters"
               autoCorrect={false}
               placeholder={WORD}
+              placeholderTextColor={colors.placeholder}
               accessibilityLabel={`Type ${WORD} to confirm`}
             />
             {error && (

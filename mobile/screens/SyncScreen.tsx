@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { countUnsynced, parseTs } from "../db/repo";
 import { getMeta } from "../db/schema";
+import { shortAddress } from "../lib/address";
 import { friendlyError } from "../lib/errors";
 import { formatDateTime, plural } from "../lib/format";
 import { AuthError, isSyncing, SyncResult, syncNow } from "../sync/syncClient";
@@ -20,11 +21,13 @@ type Outcome = { kind: "ok"; result: SyncResult } | { kind: "auth" } | { kind: "
 
 export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [server, setServer] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   async function refresh() {
+    setServer(await getMeta("server_url"));
     setLastSynced(await getMeta("last_synced_at"));
     setPending(await countUnsynced());
   }
@@ -102,6 +105,29 @@ export default function SyncScreen({ active = true, onNeedsRePair }: Props) {
           <Button title="Try again" variant="secondary" onPress={handleSync} />
         </Card>
       )}
+
+      <Card>
+        <Text style={s.big} accessibilityRole="header">
+          This PC
+        </Text>
+        <Text style={s.line} selectable>
+          {server ? shortAddress(server) : "Not paired"}
+        </Text>
+        <Text style={s.muted}>
+          If the PC's Wi-Fi or address changed and sync cannot connect, pair again with the QR code on the PC. Records on this
+          phone are kept.
+        </Text>
+        <Button
+          title="Pair again"
+          variant="secondary"
+          onPress={() =>
+            Alert.alert("Pair this phone again?", "Only pair with your shop PC. Records on this phone stay and sync after pairing.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Pair again", onPress: onNeedsRePair },
+            ])
+          }
+        />
+      </Card>
 
       <ExportCard />
       <ResetCard />

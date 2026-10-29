@@ -45,6 +45,7 @@ export default function App() {
 function AppRoot() {
   const insets = useSafeAreaInsets();
   const [paired, setPaired] = useState<boolean | null>(null);
+  const [pairingAgain, setPairingAgain] = useState(false); // true when pairing was chosen from the Sync tab, so Cancel can go back
   const [screen, setScreen] = useState<Screen>("record");
   // Tabs are mounted the first time they are opened and then kept, so drafts, filters and scroll survive.
   const [visited, setVisited] = useState<Set<Screen>>(new Set(["record"]));
@@ -94,9 +95,18 @@ function AppRoot() {
       <View style={root}>
         <PairScreen
           onPaired={() => {
+            setPairingAgain(false);
             setPaired(true);
             syncNow().catch(() => undefined); // first pull, so a phone paired to a PC with data is not empty
           }}
+          onCancel={
+            pairingAgain
+              ? () => {
+                  setPairingAgain(false);
+                  setPaired(true);
+                }
+              : undefined
+          }
         />
         <StatusBar style="auto" />
       </View>
@@ -123,7 +133,15 @@ function AppRoot() {
       case "analytics":
         return <AnalyticsScreen active={active} />;
       case "sync":
-        return <SyncScreen active={active} onNeedsRePair={() => setPaired(false)} />;
+        return (
+          <SyncScreen
+            active={active}
+            onNeedsRePair={() => {
+              setPairingAgain(true);
+              setPaired(false);
+            }}
+          />
+        );
     }
   };
 

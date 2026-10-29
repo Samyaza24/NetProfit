@@ -10,6 +10,8 @@ export const colors = {
   inputBorder: "#8a95a1",
   text: "#14202b",
   muted: "#5b6875",
+  // Hint text inside empty fields: 4.6:1 on white, set explicitly because phone dark modes can make the default invisible.
+  placeholder: "#6b7785",
   success: "#1b7f3b",
   // 5.4:1 on white; also used behind white text on badges.
   warning: "#9a5b00",
