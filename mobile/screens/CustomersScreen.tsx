@@ -4,6 +4,7 @@ import { CustomerSummary, listConnections, listCustomerSummaries } from "../db/r
 import { Connection, cutoffText } from "../lib/connection";
 import { plural } from "../lib/format";
 import { Badge, Chip, EmptyState, ErrorState } from "../ui/components";
+import ClearableInput from "../ui/ClearableInput";
 import { useLoad } from "../ui/useLoad";
 import Icon from "../ui/Icon";
 import { formatPHP, Palette, radius, shadow, space, TOUCH, type } from "../ui/theme";
@@ -28,6 +29,11 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
   const { data, error, refreshing, reload } = useLoad(load, active && !selected, 60_000);
   const rows = data?.rows ?? null;
   const conns: Record<string, Connection> = data?.conns ?? {};
+
+  // Leaving the tab clears the search box, so the next visit shows the whole list.
+  useEffect(() => {
+    if (!active) setQuery("");
+  }, [active]);
 
   // Android back closes the detail view instead of leaving the screen.
   useEffect(() => {
@@ -84,7 +90,8 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
 
   return (
     <View style={s.container}>
-      <TextInput
+      <ClearableInput
+        clearLabel="Clear search"
         style={s.search}
         placeholder="Search clients"
         placeholderTextColor={colors.placeholder}

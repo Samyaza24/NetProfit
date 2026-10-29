@@ -122,7 +122,7 @@ function AppRoot() {
     const active = screen === key;
     switch (key) {
       case "record":
-        return <RecordScreen prefill={prefill} />;
+        return <RecordScreen prefill={prefill} active={active} />;
       case "customers":
         return (
           <CustomersScreen

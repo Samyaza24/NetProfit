@@ -7,6 +7,7 @@ import { friendlyError } from "../lib/errors";
 import { fetchWithTimeout } from "../lib/http";
 import { storeCredentials } from "../sync/syncClient";
 import { Button } from "../ui/components";
+import ClearableInput from "../ui/ClearableInput";
 import Logo from "../ui/Logo";
 import { Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
@@ -146,7 +147,8 @@ export default function PairScreen({ onPaired, onCancel }: Props) {
           <Text style={s.title}>Type the details</Text>
           <Text style={s.body}>On the PC, the Pair page shows the address under the QR code, and the code can be copied.</Text>
           <Text style={s.label}>PC address</Text>
-          <TextInput
+          <ClearableInput
+            clearLabel="Clear PC address"
             style={s.input}
             value={typedUrl}
             onChangeText={setTypedUrl}
@@ -158,7 +160,8 @@ export default function PairScreen({ onPaired, onCancel }: Props) {
             accessibilityLabel="PC address"
           />
           <Text style={s.label}>Pairing code</Text>
-          <TextInput
+          <ClearableInput
+            clearLabel="Clear pairing code"
             style={s.input}
             value={typedCode}
             onChangeText={setTypedCode}

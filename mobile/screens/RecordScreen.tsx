@@ -8,7 +8,7 @@ import ExpenseScreen from "./ExpenseScreen";
 
 type Mode = "sale" | "expense";
 
-export default function RecordScreen({ prefill }: { prefill?: Prefill | null }) {
+export default function RecordScreen({ prefill, active = true }: { prefill?: Prefill | null; active?: boolean }) {
   const [mode, setMode] = useState<Mode>("sale");
 
   // "Sell again" always lands on the sale form.
@@ -33,10 +33,10 @@ export default function RecordScreen({ prefill }: { prefill?: Prefill | null }) 
         />
       </View>
       <View style={[s.form, mode !== "sale" && s.hidden]}>
-        <TransactionScreen prefill={prefill} />
+        <TransactionScreen prefill={prefill} active={active} />
       </View>
       <View style={[s.form, mode !== "expense" && s.hidden]}>
-        <ExpenseScreen />
+        <ExpenseScreen active={active} />
       </View>
     </KeyboardAvoidingView>
   );

@@ -4,12 +4,13 @@ import { createExpense, listRecentDescriptions } from "../db/repo";
 import { friendlyError } from "../lib/errors";
 import { parseAmount } from "../lib/money";
 import { Button, Chip, Summary } from "../ui/components";
+import ClearableInput from "../ui/ClearableInput";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useToast } from "../ui/Toast";
 
-export default function ExpenseScreen() {
+export default function ExpenseScreen({ active = true }: { active?: boolean }) {
   const { colors } = useTheme();
   const s = useStyles(makeStyles);
   const [review, setReview] = useState<number | null>(null); // the amount waiting for confirmation
@@ -25,6 +26,15 @@ export default function ExpenseScreen() {
   useEffect(() => {
     listRecentDescriptions().then(setRecent);
   }, []);
+
+  // Leaving the Record tab clears what was typed, so the next visit starts empty.
+  useEffect(() => {
+    if (active) return;
+    setDescription("");
+    setAmount("");
+    setReview(null);
+    setError(null);
+  }, [active]);
 
   // Step 1: check the form and show the summary; nothing is saved until the operator confirms.
   function ask() {
@@ -67,7 +77,8 @@ export default function ExpenseScreen() {
     <View style={s.root}>
     <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <Text style={s.label}>Description</Text>
-      <TextInput
+      <ClearableInput
+        clearLabel="Clear description"
         style={s.input}
         value={description}
         onChangeText={setDescription}
@@ -87,7 +98,8 @@ export default function ExpenseScreen() {
         </ScrollView>
       )}
       <Text style={s.label}>Amount (PHP)</Text>
-      <TextInput
+      <ClearableInput
+        clearLabel="Clear amount"
         ref={amountInput}
         style={s.input}
         value={amount}

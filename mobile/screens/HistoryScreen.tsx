@@ -4,6 +4,7 @@ import { onDataChange } from "../db/events";
 import { HistoryRow, listHistory, parseTs } from "../db/repo";
 import { formatDateTime, tierName } from "../lib/format";
 import { Badge, Button, EmptyState, ErrorState } from "../ui/components";
+import ClearableInput from "../ui/ClearableInput";
 import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useLoad } from "../ui/useLoad";
@@ -28,6 +29,14 @@ export default function HistoryScreen({ active = true }: { active?: boolean }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(PAGE);
+
+  // Leaving the tab clears the search right away, so the next visit shows the full history.
+  useEffect(() => {
+    if (active) return;
+    setQuery("");
+    setSearch("");
+    setLimit(PAGE);
+  }, [active]);
 
   // Search a moment after typing stops, and start again from the first page.
   useEffect(() => {
@@ -60,7 +69,8 @@ export default function HistoryScreen({ active = true }: { active?: boolean }) {
 
   return (
     <View style={s.container}>
-      <TextInput
+      <ClearableInput
+        clearLabel="Clear search"
         style={s.search}
         value={query}
         onChangeText={setQuery}

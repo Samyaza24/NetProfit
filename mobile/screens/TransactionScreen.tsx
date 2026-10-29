@@ -10,6 +10,7 @@ import {
 } from "../db/repo";
 import { getMeta, setMeta } from "../db/schema";
 import { Badge, Button, Chip, Segmented, Summary } from "../ui/components";
+import ClearableInput from "../ui/ClearableInput";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
@@ -32,7 +33,7 @@ export interface Prefill {
   nonce: number;
 }
 
-export default function TransactionScreen({ prefill }: { prefill?: Prefill | null }) {
+export default function TransactionScreen({ prefill, active = true }: { prefill?: Prefill | null; active?: boolean }) {
   const { colors } = useTheme();
   const s = useStyles(makeStyles);
   const [name, setName] = useState("");
@@ -72,6 +73,14 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
     const plan = TIERS.find((t) => t.days === prefill.days);
     if (plan) setTier(plan);
   }, [prefill]);
+
+  // Leaving the Record tab clears what was typed, so the next visit starts empty.
+  useEffect(() => {
+    if (active) return;
+    setName("");
+    setReview(null);
+    setError(null);
+  }, [active]);
 
   // Any change to the form clears the last error.
   useEffect(() => {
@@ -169,8 +178,9 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
       }}
     >
       {!tight && <Text style={s.label}>Client</Text>}
-      <TextInput
+      <ClearableInput
         ref={input}
+        clearLabel="Clear client name"
         style={s.input}
         value={name}
         onChangeText={setName}

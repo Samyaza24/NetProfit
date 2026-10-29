@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput } from "react-native";
 import { friendlyError } from "../lib/errors";
 import { resetEverything } from "../sync/syncClient";
 import { Button, Card } from "../ui/components";
+import ClearableInput from "../ui/ClearableInput";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
@@ -82,7 +83,8 @@ export default function ResetCard() {
           their next sync, including anything they have not synced yet. This cannot be undone.
         </Text>
         <Text style={s.body}>Type {WORD} to confirm.</Text>
-        <TextInput
+        <ClearableInput
+          clearLabel="Clear the typed word"
           style={s.input}
           value={typed}
           onChangeText={setTyped}
