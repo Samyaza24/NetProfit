@@ -140,7 +140,7 @@ export default function TransactionsPage() {
                         <span className="avatar" aria-hidden="true">
                           {name.trim().charAt(0).toUpperCase()}
                         </span>
-                        <Link href={`/customers/${t.customer_id}`} className="row-link">
+                        <Link href={`/customer?id=${t.customer_id}`} className="row-link">
                           {name}
                         </Link>
                       </div>

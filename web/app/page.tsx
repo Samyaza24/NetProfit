@@ -160,13 +160,13 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {rows.slice(0, limit).map((r) => (
-                <tr key={r.id} className="clickable" onClick={() => router.push(`/customers/${r.id}`)}>
+                <tr key={r.id} className="clickable" onClick={() => router.push(`/customer?id=${r.id}`)}>
                   <td>
                     <div className="cell-name">
                       <span className="avatar" aria-hidden="true">
                         {r.name.trim().charAt(0).toUpperCase()}
                       </span>
-                      <Link href={`/customers/${r.id}`} className="row-link" onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/customer?id=${r.id}`} className="row-link" onClick={(e) => e.stopPropagation()}>
                         {r.name}
                       </Link>
                     </div>

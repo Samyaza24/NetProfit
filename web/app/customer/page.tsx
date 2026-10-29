@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Icon from "@/components/Icon";
 import { Badge, EmptyState, ErrorState, PageHeader, StatCard, SummaryGrid, TableSkeleton } from "@/components/ui";
@@ -24,8 +24,17 @@ interface Device {
   label: string;
 }
 
+// Static export has no per-customer pages, so the id travels in the query string (/customer?id=...).
 export default function CustomerPage() {
-  const { id } = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={<TableSkeleton rows={5} />}>
+      <CustomerDetail />
+    </Suspense>
+  );
+}
+
+function CustomerDetail() {
+  const id = useSearchParams().get("id") ?? "";
   const load = useCallback(
     () => Promise.all([apiGet<Customer>(`/customers/${id}`), apiGet<Txn[]>("/transactions"), apiGet<Device[]>("/devices")]),
     [id]
