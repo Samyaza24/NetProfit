@@ -7,11 +7,7 @@ import {
   Customer,
   findCustomerByName,
   hasRecentTransaction,
-  listRecentCustomers,
-  RecentCustomer,
-  searchCustomers,
 } from "../db/repo";
-import { onDataChange } from "../db/events";
 import { getMeta, setMeta } from "../db/schema";
 import { Badge, Button, Chip, Segmented, Summary } from "../ui/components";
 import ConfirmDialog from "../ui/ConfirmDialog";
@@ -40,9 +36,8 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
   const { colors } = useTheme();
   const s = useStyles(makeStyles);
   const [name, setName] = useState("");
-  const [recent, setRecent] = useState<RecentCustomer[]>([]);
-  const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [existing, setExisting] = useState<Customer | null>(null);
+  const [checked, setChecked] = useState<string | null>(null); // the name the lookup above has answered for
   const [tier, setTier] = useState(TIERS[0]);
   const [status, setStatus] = useState<Status>("Paid");
   // The sale waiting for the operator to confirm; dup is true when the same client just bought the same plan.
@@ -78,36 +73,29 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
     if (plan) setTier(plan);
   }, [prefill]);
 
-  // Most recent clients, refreshed whenever local data changes.
-  useEffect(() => {
-    const load = () => listRecentCustomers(5).then(setRecent, () => undefined);
-    load();
-    return onDataChange(load);
-  }, []);
-
   // Any change to the form clears the last error.
   useEffect(() => {
     setError(null);
   }, [name, tier, status]);
 
-  // Look up matching clients shortly after typing stops; an older answer never replaces a newer one.
+  // Check whether the name is already a client shortly after typing stops; an older answer never replaces a newer one.
   useEffect(() => {
     const q = name.trim();
     if (!q) {
-      setSuggestions([]);
       setExisting(null);
+      setChecked(null);
       return;
     }
     let live = true;
     const timer = setTimeout(async () => {
       try {
-        const [found, exact] = await Promise.all([searchCustomers(q), findCustomerByName(q)]);
+        const exact = await findCustomerByName(q);
         if (live) {
-          setSuggestions(found);
           setExisting(exact);
+          setChecked(q);
         }
       } catch {
-        // Suggestions are a convenience; saving still looks the client up itself.
+        // The note is only a hint; saving still looks the client up itself.
       }
     }, 180);
     return () => {
@@ -163,8 +151,7 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
     }
   }
 
-  const isNew = name.trim() !== "" && !existing;
-  const others = suggestions.filter((c) => c.id !== existing?.id);
+  const typed = name.trim();
 
   return (
     <View style={s.root}>
@@ -196,30 +183,15 @@ export default function TransactionScreen({ prefill }: { prefill?: Prefill | nul
         onSubmitEditing={Keyboard.dismiss}
         accessibilityLabel="Customer name"
       />
-      {/* Suggestions scroll sideways so they never add a second row of height to the form. */}
-      {name.trim() === "" && recent.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.chips}>
-          {recent.map((r) => (
-            <Chip
-              key={r.name}
-              label={r.name}
-              selected={false}
-              onPress={() => {
-                setName(r.name);
-                const plan = TIERS.find((t) => t.days === r.last_days);
-                if (plan) setTier(plan);
-              }}
-            />
-          ))}
-        </ScrollView>
-      )}
-      {isNew && <Badge label="New client" color={colors.warning} />}
-      {others.length > 0 && name.trim() !== "" && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.chips}>
-          {others.map((c) => (
-            <Chip key={c.id} label={c.name} selected={false} onPress={() => setName(c.name)} />
-          ))}
-        </ScrollView>
+      {/* Says whether the typed name is already a client; shown once the lookup has answered for this exact name. */}
+      {typed !== "" && checked === typed && (
+        <Text style={[s.note, existing ? s.noteOld : s.noteNew]} accessibilityLiveRegion="polite">
+          {existing
+            ? existing.name === typed
+              ? "Already on your list."
+              : `Already on your list as "${existing.name}".`
+            : "Not on your list yet. It will be added as a new client."}
+        </Text>
       )}
 
       {!tight && <Text style={s.label}>Plan</Text>}
@@ -286,7 +258,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   containerTight: { padding: space.md, gap: space.sm },
   label: { fontSize: type.small, fontWeight: "700", color: colors.muted, textTransform: "uppercase" },
   input: { minHeight: TOUCH, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.md, paddingHorizontal: space.md, fontSize: type.body, color: colors.text },
-  chips: { flexDirection: "row", gap: space.sm },
+  note: { fontSize: type.small, fontWeight: "600" },
+  noteOld: { color: colors.success },
+  noteNew: { color: colors.warning },
   tiers: { flexDirection: "row", gap: space.sm },
   tiersTight: { gap: space.xs },
   tierCell: { flex: 1 },
