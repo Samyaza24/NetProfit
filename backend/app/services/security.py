@@ -21,9 +21,15 @@ def hash_secret(raw: str) -> str:
 
 def get_lan_ip() -> str:
     # UDP connect doesn't send packets; it just makes the OS pick the outbound-facing local IP.
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:  # no route at all (offline): use the hostname's address, then loopback
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except OSError:
+            return "127.0.0.1"
 
 
 def get_server_url() -> str:
