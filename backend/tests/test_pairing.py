@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import PairingCode
+from app.services.device_service import exchange_pairing_code
 from app.services.timeutil import utc_now
 
 from .conftest import pair
@@ -22,6 +23,15 @@ def test_code_is_single_use(client):
     body = {"pairing_code": code, "label": "a"}
     assert client.post("/api/v1/devices/pair", json=body).status_code == 201
     assert client.post("/api/v1/devices/pair", json=body).status_code == 400
+
+
+def test_code_cannot_be_claimed_twice_by_overlapping_requests(client):
+    code = client.post("/api/v1/devices/pairing-code").json()["pairing_code"]
+    with SessionLocal() as first, SessionLocal() as second:
+        stale = second.execute(select(PairingCode)).scalar_one()  # second request saw it unused
+        assert not stale.consumed
+        assert exchange_pairing_code(first, code, "a") is not None
+        assert exchange_pairing_code(second, code, "b") is None
 
 
 def test_unknown_code_rejected(client):

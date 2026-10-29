@@ -1,7 +1,7 @@
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models import Device, PairingCode
@@ -48,19 +48,19 @@ def create_pairing_code(db: Session) -> tuple[str, PairingCode]:
 
 
 def exchange_pairing_code(db: Session, code: str, label: str) -> tuple[Device, str] | None:
-    code_hash = hash_secret(code)
-    pairing_code = db.execute(
-        select(PairingCode).where(PairingCode.code_hash == code_hash)
-    ).scalar_one_or_none()
-    if (
-        pairing_code is None
-        or pairing_code.consumed
-        or pairing_code.expires_at < utc_now()
-    ):
-        return None
-
-    pairing_code.consumed = True
+    # One conditional UPDATE so two simultaneous requests cannot both consume the same code.
+    claimed = db.execute(
+        update(PairingCode)
+        .where(
+            PairingCode.code_hash == hash_secret(code),
+            PairingCode.consumed.is_(False),
+            PairingCode.expires_at >= utc_now(),
+        )
+        .values(consumed=True)
+    )
     db.commit()
+    if claimed.rowcount != 1:
+        return None
 
     raw_token = generate_device_token()
     device = create_device(
