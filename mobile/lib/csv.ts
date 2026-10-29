@@ -1,9 +1,9 @@
-// A text cell is quoted, and one that starts with = + - or @ is prefixed so a spreadsheet shows it as text
-// instead of running it as a formula (a client named "=HYPERLINK(...)" must stay harmless).
+// A text cell is quoted, and one that starts with = + - @ tab or CR is prefixed so a spreadsheet shows it as
+// text instead of running it as a formula (a client named "=HYPERLINK(...)" must stay harmless).
 function cell(value: string | number | null): string {
   if (value === null) return '""';
   const text = String(value);
-  const safe = typeof value === "string" && /^[=+\-@]/.test(text) ? `'${text}` : text;
+  const safe = typeof value === "string" && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   return `"${safe.replace(/"/g, '""')}"`;
 }
 

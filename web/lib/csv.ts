@@ -1,7 +1,7 @@
-// Quote a cell and neutralise spreadsheet formulas ("=", "+", "-", "@") in text.
+// Quote a cell and neutralise spreadsheet formulas (leading "=", "+", "-", "@", tab, CR) in text.
 function cell(v: string | number): string {
   const s = String(v);
-  const safe = typeof v === "string" && /^[=+\-@]/.test(s) ? `'${s}` : s;
+  const safe = typeof v === "string" && /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
