@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import Customer, Device, OperationalExpense, Transaction
 from app.schemas.sync import SyncPullResponse, SyncPushCounts, SyncPushRequest, SyncPushResponse
 from app.services.reset_service import get_epoch
-from app.services.timeutil import to_naive_utc, utc_now
+from app.services.timeutil import client_time, to_naive_utc, utc_now
 
 
 def process_transaction_sync(
@@ -56,7 +56,7 @@ def process_transaction_sync(
         remap: dict[str, str] = {}
 
         for c in payload.customers:
-            incoming_updated = to_naive_utc(c.updated_at) if c.updated_at else utc_now()
+            incoming_updated = client_time(c.updated_at)
             existing = existing_customers.get(c.id)
             twin = by_name.get(c.name.lower())
             if existing is None:
@@ -101,7 +101,7 @@ def process_transaction_sync(
                 amount_received=t.amount_received,
                 duration_days=t.duration_days,
                 status=t.status,
-                timestamp=to_naive_utc(t.timestamp) if t.timestamp else utc_now(),
+                timestamp=client_time(t.timestamp),
             )
             db.add(new_txn)
             existing_transactions[t.id] = new_txn
@@ -116,7 +116,7 @@ def process_transaction_sync(
                     device_id=device.id,
                     description=e.description,
                     amount=e.amount,
-                    timestamp=to_naive_utc(e.timestamp) if e.timestamp else utc_now(),
+                    timestamp=client_time(e.timestamp),
                 )
             )
             existing_expense_ids.add(e.id)

@@ -8,7 +8,7 @@ from app.schemas.common import UUIDStr
 class ExpenseBase(BaseModel):
     device_id: UUIDStr | None = None
     description: str = Field(min_length=1, max_length=500)
-    amount: float = Field(gt=0)
+    amount: float = Field(gt=0, le=10_000_000)
 
 
 class ExpenseCreate(ExpenseBase):

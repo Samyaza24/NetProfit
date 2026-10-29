@@ -20,7 +20,7 @@ class PairingCodeResponse(BaseModel):
 
 
 class PairExchangeRequest(BaseModel):
-    pairing_code: str
+    pairing_code: str = Field(min_length=1, max_length=64)
     label: str = Field(min_length=1, max_length=255)
 
 

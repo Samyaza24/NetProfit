@@ -245,3 +245,30 @@ def test_pull_pages_cover_every_row(client, auth):
 def test_pull_limit_is_validated(client, auth):
     assert client.get(SYNC, params={"limit": 0}, headers=auth).status_code == 422
     assert client.get(SYNC, params={"limit": 1001}, headers=auth).status_code == 422
+
+
+def test_far_future_client_times_are_capped(client, auth):
+    cid = new_id()
+    far = "2999-01-01T00:00:00Z"
+    payload = {
+        "customers": [{"id": cid, "name": "Ana", "updated_at": far}],
+        "transactions": [txn(cid, timestamp=far)],
+        "expenses": [{"id": new_id(), "description": "fuel", "amount": 5, "timestamp": far}],
+    }
+    assert client.post(SYNC, json=payload, headers=auth).status_code == 200
+    # A capped time lets a later honest edit win, instead of the 2999 one winning forever.
+    client.post(SYNC, json={"customers": [{"id": cid, "name": "Ana B", "updated_at": "2999-06-01T00:00:00Z"}]}, headers=auth)
+    pulled = client.get(SYNC, headers=auth).json()
+    assert pulled["customers"][0]["updated_at"] < "2100"
+    assert pulled["transactions"][0]["timestamp"] < "2100"
+    assert pulled["expenses"][0]["timestamp"] < "2100"
+
+
+def test_huge_amounts_and_durations_rejected(client, auth):
+    cid = new_id()
+    base = {"customers": [{"id": cid, "name": "Ana"}]}
+    for bad in ({"amount_received": 1e300}, {"duration_days": 100000}):
+        res = client.post(SYNC, json={**base, "transactions": [txn(cid, **bad)]}, headers=auth)
+        assert res.status_code == 422
+    bad_expense = {"id": new_id(), "description": "x", "amount": 1e300}
+    assert client.post(SYNC, json={"expenses": [bad_expense]}, headers=auth).status_code == 422
