@@ -1,6 +1,9 @@
+from urllib.parse import urlsplit
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import LOCAL_HOSTS
 from app.database import get_db
 from app.schemas.device import (
     DeviceRead,
@@ -31,8 +34,11 @@ def get_device(device_id: str, db: Session = Depends(get_db)) -> DeviceRead:
 
 @router.post("/pairing-code", response_model=PairingCodeResponse, status_code=201)
 def create_pairing_code(db: Session = Depends(get_db)) -> PairingCodeResponse:
-    raw_code, pairing_code = device_service.create_pairing_code(db)
     server_url = get_server_url()
+    # With no network the address is loopback, which a phone could never reach.
+    if urlsplit(server_url).hostname in LOCAL_HOSTS:
+        raise HTTPException(status_code=409, detail="This PC is not on a network. Connect to Wi-Fi, then try again.")
+    raw_code, pairing_code = device_service.create_pairing_code(db)
     return PairingCodeResponse(
         pairing_code=raw_code, server_url=server_url, expires_at=pairing_code.expires_at
     )

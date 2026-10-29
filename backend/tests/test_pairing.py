@@ -53,3 +53,26 @@ def test_raw_code_not_stored(client):
     code = client.post("/api/v1/devices/pairing-code").json()["pairing_code"]
     with SessionLocal() as db:
         assert db.execute(select(PairingCode)).scalar_one().code_hash != code
+
+
+def test_overlong_pairing_code_rejected(client):
+    res = client.post("/api/v1/devices/pair", json={"pairing_code": "x" * 65, "label": "a"})
+    assert res.status_code == 422
+
+
+def test_old_pairing_codes_are_purged_on_new_code(client):
+    client.post("/api/v1/devices/pairing-code")
+    with SessionLocal() as db:
+        row = db.execute(select(PairingCode)).scalar_one()
+        row.expires_at = utc_now() - timedelta(minutes=1)
+        db.commit()
+    client.post("/api/v1/devices/pairing-code")
+    with SessionLocal() as db:
+        assert len(db.execute(select(PairingCode)).scalars().all()) == 1
+
+
+def test_pairing_code_refused_without_network(client, monkeypatch):
+    from app.api.v1 import devices
+
+    monkeypatch.setattr(devices, "get_server_url", lambda: "http://127.0.0.1:8001/api/v1")
+    assert client.post("/api/v1/devices/pairing-code").status_code == 409

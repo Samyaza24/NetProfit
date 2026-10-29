@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models import OperationalExpense
 from app.schemas.expense import ExpenseCreate
+from app.services.commit import commit_or_conflict
 
 
 def create_expense(db: Session, data: ExpenseCreate) -> OperationalExpense:
@@ -13,7 +14,7 @@ def create_expense(db: Session, data: ExpenseCreate) -> OperationalExpense:
         amount=data.amount,
     )
     db.add(expense)
-    db.commit()
+    commit_or_conflict(db)
     db.refresh(expense)
     return expense
 

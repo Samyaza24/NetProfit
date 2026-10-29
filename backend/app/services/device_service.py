@@ -1,7 +1,7 @@
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.models import Device, PairingCode
@@ -35,6 +35,8 @@ def create_device(db: Session, device_id: str, label: str, token_hash: str) -> D
 def create_pairing_code(db: Session) -> tuple[str, PairingCode]:
     raw_code = generate_pairing_code()
     now = utc_now()
+    # Spent and expired codes are useless, so drop them here to keep the table small.
+    db.execute(delete(PairingCode).where(PairingCode.consumed.is_(True) | (PairingCode.expires_at < now)))
     pairing_code = PairingCode(
         id=str(uuid.uuid4()),
         code_hash=hash_secret(raw_code),

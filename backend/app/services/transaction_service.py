@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Transaction
 from app.schemas.transaction import TransactionCreate
+from app.services.commit import commit_or_conflict
 
 
 def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
@@ -15,7 +16,7 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
         status=data.status,
     )
     db.add(transaction)
-    db.commit()
+    commit_or_conflict(db)
     db.refresh(transaction)
     return transaction
 
