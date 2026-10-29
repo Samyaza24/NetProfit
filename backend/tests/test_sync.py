@@ -207,3 +207,41 @@ def test_customer_last_write_wins(client, auth):
     assert client.get(f"/api/v1/customers/{cid}").json()["name"] == "Newer"
     push("Newest", "2026-01-03T00:00:00")
     assert client.get(f"/api/v1/customers/{cid}").json()["name"] == "Newest"
+
+
+def test_pull_without_limit_returns_everything(client, auth):
+    for i in range(3):
+        client.post(SYNC, json={"customers": [{"id": new_id(), "name": f"C{i}"}]}, headers=auth)
+    body = client.get(SYNC, headers=auth).json()
+    assert len(body["customers"]) == 3
+    assert body["next_since"] is None
+
+
+def test_pull_pages_cover_every_row(client, auth):
+    cids = []
+    for i in range(5):  # separate pushes so each row gets its own modified_at
+        cid = new_id()
+        cids.append(cid)
+        client.post(SYNC, json={"customers": [{"id": cid, "name": f"C{i}"}], "transactions": [txn(cid)]}, headers=auth)
+
+    seen_customers, seen_txns, since, pages = set(), set(), None, 0
+    while pages < 20:
+        params = {"limit": 2, **({"since": since} if since else {})}
+        body = client.get(SYNC, params=params, headers=auth).json()
+        pages += 1
+        assert len(body["customers"]) <= 2 and len(body["transactions"]) <= 2
+        seen_customers |= {c["id"] for c in body["customers"]}
+        seen_txns |= {t["id"] for t in body["transactions"]}
+        if body["next_since"] is None:
+            break
+        assert body["next_since"] != since  # the cursor must move or the phone would loop forever
+        since = body["next_since"]
+
+    assert seen_customers == set(cids)
+    assert len(seen_txns) == 5
+    assert pages > 1
+
+
+def test_pull_limit_is_validated(client, auth):
+    assert client.get(SYNC, params={"limit": 0}, headers=auth).status_code == 422
+    assert client.get(SYNC, params={"limit": 1001}, headers=auth).status_code == 422

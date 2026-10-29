@@ -131,21 +131,29 @@ def process_transaction_sync(
     return SyncPushResponse(accepted=counts, customer_remap=remap, data_epoch=epoch, server_time=utc_now())
 
 
-def pull_since(db: Session, since: datetime | None) -> SyncPullResponse:
+def pull_since(db: Session, since: datetime | None, limit: int | None = None) -> SyncPullResponse:
     server_time = utc_now()  # taken before the queries so concurrent commits are not skipped
-    customers_q = select(Customer)
-    transactions_q = select(Transaction)
-    expenses_q = select(OperationalExpense)
     if since is not None:
         since = to_naive_utc(since)
-        customers_q = customers_q.where(Customer.modified_at > since)
-        transactions_q = transactions_q.where(Transaction.modified_at > since)
-        expenses_q = expenses_q.where(OperationalExpense.timestamp > since)
+    page_ends: list[datetime] = []
+
+    # Inclusive cursor (>=) so rows sharing a page-boundary time are never skipped; phones upsert, so repeats are harmless.
+    def fetch(model, cursor_col) -> list:
+        query = select(model).order_by(cursor_col, model.id)
+        if since is not None:
+            query = query.where(cursor_col >= since)
+        if limit is not None:
+            query = query.limit(limit)
+        rows = list(db.execute(query).scalars().all())
+        if limit is not None and len(rows) == limit:
+            page_ends.append(getattr(rows[-1], cursor_col.key))  # this table may have more rows
+        return rows
 
     return SyncPullResponse(
-        customers=list(db.execute(customers_q).scalars().all()),
-        transactions=list(db.execute(transactions_q).scalars().all()),
-        expenses=list(db.execute(expenses_q).scalars().all()),
+        customers=fetch(Customer, Customer.modified_at),
+        transactions=fetch(Transaction, Transaction.modified_at),
+        expenses=fetch(OperationalExpense, OperationalExpense.timestamp),
+        next_since=min(page_ends) if page_ends else None,
         data_epoch=get_epoch(db),
         server_time=server_time,
     )

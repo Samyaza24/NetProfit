@@ -36,5 +36,7 @@ class SyncPullResponse(BaseModel):
     customers: list[CustomerRead]
     transactions: list[TransactionRead]
     expenses: list[ExpenseRead]
+    # Set when a limit cut the result short: ask again with since=next_since to get the rest.
+    next_since: datetime | None = None
     data_epoch: str
     server_time: datetime
