@@ -1,10 +1,11 @@
-﻿import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from "react-native";
+﻿import { ReactNode, useCallback, useState } from "react";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DayTotal, getDailyReceived, getFirstActivity, getTotals, listExpensesBetween, listMonthlyTotals, listUnpaidBetween, MonthTotal, Totals } from "../db/repo";
 import { formatDate, plural } from "../lib/format";
 import { Badge, Card, Chip, ErrorState, Segmented } from "../ui/components";
 import CountUp from "../ui/CountUp";
 import Icon from "../ui/Icon";
+import MonthPicker from "../ui/MonthPicker";
 import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useLoad } from "../ui/useLoad";
@@ -81,8 +82,7 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
   const [mode, setMode] = useState<Mode>("month");
   const [month, setMonth] = useState(() => firstOfMonth(new Date()));
   const [day, setDay] = useState<Date | null>(null);
-  const strip = useRef<ScrollViewInstance>(null);
-  const stripX = useRef<Record<number, number>>({});
+  const [picking, setPicking] = useState(false);
 
   // Everything for the chosen day, month or all time in one load.
   const monthKey = month.getTime();
@@ -109,15 +109,9 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
 
   const { data, error, refreshing, reload } = useLoad(load, active);
 
-  // Keep the chosen month in view in the month strip.
-  useEffect(() => {
-    const x = stripX.current[monthKey];
-    if (x !== undefined) strip.current?.scrollTo({ x: Math.max(0, x - 60), animated: true });
-  }, [monthKey, mode, data?.first]);
-
   if (error && !data) return <ErrorState message={error} onRetry={reload} />;
   if (!data) return <ActivityIndicator style={s.loading} color={colors.primary} />;
-  const { first, totals: t, prev, daily, expenses, owes, months } = data;
+  const { totals: t, prev, daily, expenses, owes, months } = data;
 
   const stale = data.key !== key;
   const net = t.received - t.expenses;
@@ -126,21 +120,26 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
   const label = mode === "all" ? "all time" : day ? formatDate(day) : monthName(month);
   const on = day ? ` on ${shortDay(day)}` : "";
 
-  // Months from the first recorded one to now, for the strip.
-  const strip_months: Date[] = [];
-  for (let m = first ? firstOfMonth(first) : thisMonth; m.getTime() <= thisMonth.getTime(); m = addMonths(m, 1)) strip_months.push(m);
-
   // Average per day counts only the days that have happened, so the current month is not diluted.
   const daysCounted = daily ? (monthKey === thisMonth.getTime() ? today.getDate() : daily.length) : 1;
   const best = daily?.reduce<DayTotal | null>((top, d) => (d.amount > (top?.amount ?? 0) ? d : top), null) ?? null;
   const prevNet = prev ? prev.received - prev.expenses : null;
   const gap = prevNet === null ? 0 : net - prevNet;
   const maxDay = Math.max(1, ...(daily ?? []).map((d) => d.amount));
-  const lead = daily ? daily[0].date.getDay() : 0;
+  // Weeks of exactly 7 cells (null = blank), so every column lines up with its weekday.
+  const cells: (DayTotal | null)[] = daily ? [...Array<null>(daily[0].date.getDay()).fill(null), ...daily] : [];
+  while (cells.length % 7) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
 
   const nets = (months ?? []).map((m) => m.received - m.expenses);
   const bestMonth = months?.length ? months[nets.indexOf(Math.max(...nets))] : null;
   const maxAbs = Math.max(1, ...nets.map(Math.abs));
+
+  const pick = (m: Date) => {
+    setMonth(m);
+    setDay(null);
+  };
+  const step = (n: number) => pick(addMonths(month, n));
 
   return (
     <ScrollView
@@ -162,20 +161,23 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
           label="Period"
         />
         {mode === "month" && (
-          <ScrollView ref={strip} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.strip}>
-            {strip_months.map((m) => (
-              <View key={m.getTime()} onLayout={(e) => (stripX.current[m.getTime()] = e.nativeEvent.layout.x)}>
-                <Chip
-                  label={m.getMonth() === 0 || m.getTime() === strip_months[0].getTime() ? m.toLocaleDateString("en-PH", { month: "short", year: "numeric" }) : m.toLocaleDateString("en-PH", { month: "short" })}
-                  selected={m.getTime() === monthKey}
-                  onPress={() => {
-                    setMonth(m);
-                    setDay(null);
-                  }}
-                />
-              </View>
-            ))}
-          </ScrollView>
+          <View style={s.stepper}>
+            <Pressable style={s.arrow} onPress={() => step(-1)} accessibilityRole="button" accessibilityLabel="Previous month">
+              <Icon name="chevron-back" size={26} color={colors.text} />
+            </Pressable>
+            <Pressable style={s.monthBtn} onPress={() => setPicking(true)} accessibilityRole="button" accessibilityLabel={`${monthName(month)}. Tap to choose another month.`}>
+              <Text style={s.monthText}>{monthName(month)}</Text>
+              <Icon name="chevron-down" size={18} color={colors.muted} />
+            </Pressable>
+            <Pressable style={s.arrow} onPress={() => step(1)} accessibilityRole="button" accessibilityLabel="Next month">
+              <Icon name="chevron-forward" size={26} color={colors.text} />
+            </Pressable>
+          </View>
+        )}
+        {mode === "month" && monthKey !== thisMonth.getTime() && (
+          <View style={s.todayRow}>
+            <Chip label="This month" selected={false} onPress={() => pick(thisMonth)} />
+          </View>
         )}
       </View>
 
@@ -221,31 +223,31 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
                   </Text>
                 ))}
               </View>
-              <View style={s.grid}>
-                {Array.from({ length: lead }, (_, i) => (
-                  <View key={`b${i}`} style={s.cellWrap} />
-                ))}
-                {daily.map((d) => {
-                  const picked = day !== null && d.date.getTime() === day.getTime();
-                  const future = d.date.getTime() > today.getTime();
-                  const isToday = d.date.getTime() === today.getTime();
-                  return (
-                    <View key={d.date.toISOString()} style={s.cellWrap}>
-                      <Pressable
-                        style={[s.cell, isToday && s.cellToday, picked && s.cellPicked, future && s.cellOff]}
-                        disabled={future}
-                        onPress={() => setDay(picked ? null : d.date)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: picked, disabled: future }}
-                        accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
-                      >
-                        {d.amount > 0 && !picked && <View style={[s.heat, { opacity: 0.2 + 0.6 * (d.amount / maxDay) }]} />}
-                        <Text style={[s.cellDay, picked && s.cellTextPicked]}>{d.date.getDate()}</Text>
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </View>
+              {weeks.map((week, w) => (
+                <View key={w} style={s.week}>
+                  {week.map((d, i) => {
+                    if (!d) return <View key={i} style={s.cellWrap} />;
+                    const picked = day !== null && d.date.getTime() === day.getTime();
+                    const future = d.date.getTime() > today.getTime();
+                    const isToday = d.date.getTime() === today.getTime();
+                    return (
+                      <View key={i} style={s.cellWrap}>
+                        <Pressable
+                          style={[s.cell, isToday && s.cellToday, picked && s.cellPicked, future && s.cellOff]}
+                          disabled={future}
+                          onPress={() => setDay(picked ? null : d.date)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: picked, disabled: future }}
+                          accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
+                        >
+                          {d.amount > 0 && !picked && <View style={[s.heat, { opacity: 0.2 + 0.6 * (d.amount / maxDay) }]} />}
+                          <Text style={[s.cellDay, picked && s.cellTextPicked]}>{d.date.getDate()}</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
               <Text style={s.note}>{day ? `${formatDate(day)}: ${formatPHP(daily.find((d) => d.date.getTime() === day.getTime())?.amount ?? 0)} received` : "Greener days brought in more. Tap a day to see only that day."}</Text>
             </Card>
 
@@ -326,6 +328,15 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
           </>
         )}
 
+        <MonthPicker
+          visible={picking}
+          value={month}
+          onPick={(m) => {
+            pick(m);
+            setPicking(false);
+          }}
+          onClose={() => setPicking(false)}
+        />
         <Text style={s.note}>{plural(t.sales, "sale")} counted. Based on data on this phone. Sync first for the latest totals.</Text>
       </View>
     </ScrollView>
@@ -336,7 +347,11 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   loading: { marginTop: space.xl },
   container: { paddingBottom: space.xl },
   header: { backgroundColor: colors.bg, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm, gap: space.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  strip: { gap: space.sm, paddingRight: space.lg },
+  stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  arrow: { width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center" },
+  monthBtn: { flex: 1, minHeight: TOUCH, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.xs },
+  monthText: { fontSize: type.title, fontWeight: "700", color: colors.text },
+  todayRow: { alignItems: "center" },
   body: { padding: space.lg, gap: space.md },
   stale: { opacity: 0.5 },
   title: { fontSize: type.title, fontWeight: "700", color: colors.text, marginBottom: space.xs },
@@ -362,9 +377,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   tileLabel: { fontSize: type.tiny, color: colors.muted, fontWeight: "600" },
   tileValue: { fontSize: type.body, fontWeight: "700", color: colors.text },
   weekRow: { flexDirection: "row", marginTop: space.xs },
-  weekDay: { width: `${100 / 7}%`, textAlign: "center", fontSize: type.tiny, fontWeight: "700", color: colors.muted },
-  grid: { flexDirection: "row", flexWrap: "wrap", marginVertical: space.xs },
-  cellWrap: { width: `${100 / 7}%`, height: 46, padding: 2 },
+  weekDay: { flex: 1, textAlign: "center", fontSize: type.tiny, fontWeight: "700", color: colors.muted },
+  week: { flexDirection: "row" },
+  cellWrap: { flex: 1, height: 46, padding: 2 },
   cell: { flex: 1, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   cellToday: { borderColor: colors.primary, borderWidth: 2 },
   cellPicked: { backgroundColor: colors.primary, borderColor: colors.primary },
