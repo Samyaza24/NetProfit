@@ -12,6 +12,37 @@ export function toCsv(header: string[], rows: (string | number | null)[][]): str
   return "﻿" + [header, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
 }
 
+// Reads CSV text into rows of cells: handles a byte-order mark, quotes, "" escapes and commas or newlines inside quotes.
+// A leading apostrophe added by toCsv to guard against formulas is removed again.
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cur = "";
+  let quoted = false;
+  const endCell = () => {
+    row.push(/^'[=+\-@\t\r]/.test(cur) ? cur.slice(1) : cur);
+    cur = "";
+  };
+  const src = text.replace(/^﻿/, "");
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch !== '"') cur += ch;
+      else if (src[i + 1] === '"') (cur += '"'), i++;
+      else quoted = false;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") endCell();
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && src[i + 1] === "\n") i++;
+      endCell();
+      rows.push(row);
+      row = [];
+    } else cur += ch;
+  }
+  if (cur !== "" || row.length) (endCell(), rows.push(row));
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+
 // "2026-10-29 01:42" in the phone's local time, easy to sort and read in a spreadsheet.
 export function localStamp(when: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");

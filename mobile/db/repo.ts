@@ -294,6 +294,50 @@ export async function upsertExpense(e: {
   );
 }
 
+// Inserts a sale from an imported file unless the same client, minute, amount and plan is already stored (files only keep minutes).
+export async function importTransaction(customerId: string, amount: number, days: number, status: string, timestamp: string): Promise<boolean> {
+  const db = await getDb();
+  const dup = await db.getFirstAsync<{ id: string }>(
+    "SELECT id FROM transactions WHERE customer_id = ? AND substr(timestamp, 1, 16) = substr(?, 1, 16) AND amount_received = ? AND duration_days = ? LIMIT 1",
+    customerId,
+    timestamp,
+    amount,
+    days
+  );
+  if (dup) return false;
+  await db.runAsync(
+    `INSERT INTO transactions (id, customer_id, device_id, amount_received, duration_days, status, timestamp, synced)
+     VALUES (?, ?, NULL, ?, ?, ?, ?, 0)`,
+    newUuid(),
+    customerId,
+    amount,
+    days,
+    status,
+    timestamp
+  );
+  return true;
+}
+
+// Inserts an expense from an imported file unless the same minute, description and amount is already stored.
+export async function importExpense(description: string, amount: number, timestamp: string): Promise<boolean> {
+  const db = await getDb();
+  const dup = await db.getFirstAsync<{ id: string }>(
+    "SELECT id FROM expenses WHERE substr(timestamp, 1, 16) = substr(?, 1, 16) AND description = ? AND amount = ? LIMIT 1",
+    timestamp,
+    description,
+    amount
+  );
+  if (dup) return false;
+  await db.runAsync(
+    "INSERT INTO expenses (id, device_id, description, amount, timestamp, synced) VALUES (?, NULL, ?, ?, ?, 0)",
+    newUuid(),
+    description,
+    amount,
+    timestamp
+  );
+  return true;
+}
+
 export interface HistoryRow {
   kind: "sale" | "expense";
   id: string;
