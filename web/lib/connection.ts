@@ -10,17 +10,24 @@ export interface Connection {
   manual: boolean;
 }
 
-const DAY = 86_400_000;
+// Local midnight n calendar days after the day of `ms`.
+const dayStart = (ms: number, n = 0) => {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + n);
+  return d.getTime();
+};
 
-// A plan starts when bought, or when the previous plan ends if that is still running.
-// Unpaid plans still count: the customer was connected, they just owe money.
+// Plans count whole calendar days and the day of purchase is day 1, so 7 days bought Oct 30 is connected
+// through Nov 5. expiry is the midnight that ends the last connected day. A plan bought while the previous
+// one is running starts the day after it ends. Unpaid plans still count: the customer was connected, they just owe money.
 // manualAt is when the operator cut the customer off by hand; it only counts if it came after
 // the latest purchase, so buying a new plan reconnects them without any extra step.
 export function connectionOf(plans: { at: number; days: number }[], now = Date.now(), manualAt: number | null = null): Connection {
   let end: number | null = null;
   let lastBuy = 0;
   for (const p of [...plans].sort((a, b) => a.at - b.at)) {
-    end = Math.max(end ?? 0, p.at) + p.days * DAY;
+    end = dayStart(Math.max(end ?? 0, dayStart(p.at)), p.days);
     lastBuy = Math.max(lastBuy, p.at);
   }
   if (manualAt !== null && manualAt >= lastBuy) {
@@ -62,14 +69,24 @@ export interface CutoffInfo {
   manual: boolean;
 }
 
+// "today", "tomorrow", "in 3 days", "yesterday", "2 days ago", by calendar day.
+function dayRelative(ms: number, now: number): string {
+  const diff = Math.round((dayStart(ms) - dayStart(now)) / 86_400_000);
+  if (diff === 0) return "today";
+  if (Math.abs(diff) === 1) return diff > 0 ? "tomorrow" : "yesterday";
+  return diff > 0 ? `in ${diff} days` : `${-diff} days ago`;
+}
+
 // When the customer is (or was) cut off; null if they never bought a plan and were never cut off.
+// A plan runs through the end of its last day, so that day is shown with "end of day" as the time.
 export function cutoffInfo(c: Connection | undefined, now = Date.now()): CutoffInfo | null {
   if (!c || c.expiry === null) return null;
-  const d = new Date(c.expiry);
+  const when = c.manual ? c.expiry : dayStart(c.expiry, -1);
+  const d = new Date(when);
   return {
     day: d.toLocaleDateString("en-PH", { dateStyle: "medium" }),
-    clock: d.toLocaleTimeString("en-PH", { timeStyle: "short" }),
-    rel: relative(c.expiry, now),
+    clock: c.manual ? d.toLocaleTimeString("en-PH", { timeStyle: "short" }) : "End of day",
+    rel: c.manual ? relative(when, now) : dayRelative(when, now),
     manual: c.manual,
   };
 }

@@ -5,5 +5,9 @@ export const tierName = (days: number) => (days === 30 ? "1 Month" : `${days} ${
 export const formatDateTime = (when: number | Date) =>
   new Date(when).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
+// "Nov 5, 2026".
+export const formatDate = (when: number | Date) =>
+  new Date(when).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+
 // "1 client", "3 clients".
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

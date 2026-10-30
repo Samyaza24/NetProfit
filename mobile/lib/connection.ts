@@ -1,4 +1,4 @@
-import { formatDateTime } from "./format";
+import { formatDate, formatDateTime } from "./format";
 
 export type ConnState = "connected" | "cutoff" | "none";
 
@@ -9,17 +9,24 @@ export interface Connection {
   manual: boolean;
 }
 
-const DAY = 86_400_000;
+// Local midnight n calendar days after the day of `ms`.
+const dayStart = (ms: number, n = 0) => {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + n);
+  return d.getTime();
+};
 
-// A plan starts when bought, or when the previous plan ends if that is still running.
-// Unpaid plans still count: the customer was connected, they just owe money.
+// Plans count whole calendar days and the day of purchase is day 1, so 7 days bought Oct 30 is connected
+// through Nov 5. expiry is the midnight that ends the last connected day. A plan bought while the previous
+// one is running starts the day after it ends. Unpaid plans still count: the customer was connected, they just owe money.
 // manualAt is when the operator cut the customer off by hand; it only counts if it came after
 // the latest purchase, so buying a new plan reconnects them without any extra step.
 export function connectionOf(plans: { at: number; days: number }[], now = Date.now(), manualAt: number | null = null): Connection {
   let end: number | null = null;
   let lastBuy = 0;
   for (const p of [...plans].sort((a, b) => a.at - b.at)) {
-    end = Math.max(end ?? 0, p.at) + p.days * DAY;
+    end = dayStart(Math.max(end ?? 0, dayStart(p.at)), p.days);
     lastBuy = Math.max(lastBuy, p.at);
   }
   if (manualAt !== null && manualAt >= lastBuy) {
@@ -38,9 +45,18 @@ function relative(ms: number, now: number): string {
   return ms >= now ? `in ${text}` : `${text} ago`;
 }
 
-// "Cuts off Nov 28, 2026, 12:08 AM (in 30 days)", "Cut off Oct 20, 2026, 3:00 PM (9 days ago)".
+// "today", "tomorrow", "in 3 days", "yesterday", "2 days ago", by calendar day.
+function dayRelative(ms: number, now: number): string {
+  const diff = Math.round((dayStart(ms) - dayStart(now)) / 86_400_000);
+  if (diff === 0) return "today";
+  if (Math.abs(diff) === 1) return diff > 0 ? "tomorrow" : "yesterday";
+  return diff > 0 ? `in ${diff} days` : `${-diff} days ago`;
+}
+
+// "Cuts off Nov 5, 2026 (in 6 days)", "Cut off Nov 5, 2026 (yesterday)", "Cut off by you Oct 20, 2026, 3:00 PM (9 days ago)".
 export function cutoffText(c: Connection | undefined, now = Date.now()): string {
   if (!c || c.expiry === null) return "No plan bought yet";
-  const verb = c.state === "connected" ? "Cuts off" : c.manual ? "Cut off by you" : "Cut off";
-  return `${verb} ${formatDateTime(c.expiry)} (${relative(c.expiry, now)})`;
+  if (c.manual) return `Cut off by you ${formatDateTime(c.expiry)} (${relative(c.expiry, now)})`;
+  const last = dayStart(c.expiry, -1);
+  return `${c.state === "connected" ? "Cuts off" : "Cut off"} ${formatDate(last)} (${dayRelative(last, now)})`;
 }
