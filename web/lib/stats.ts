@@ -36,8 +36,9 @@ export const startOfMonth = () => {
 };
 
 // Same definitions as the phone: received counts Paid only, net is received minus expenses.
-export function totals(txns: Txn[], exps: Exp[], since: Date | null): Totals {
-  const after = (ts: string) => !since || parseTs(ts) >= since;
+// since is included and until is excluded; null means no limit.
+export function totals(txns: Txn[], exps: Exp[], since: Date | null, until: Date | null = null): Totals {
+  const after = (ts: string) => (!since || parseTs(ts) >= since) && (!until || parseTs(ts) < until);
   let received = 0;
   let unpaid = 0;
   for (const t of txns) {
@@ -54,10 +55,10 @@ export interface DayTotal {
   amount: number;
 }
 
-// Paid amount per local day for the last `days` days, oldest first.
-export function dailyReceived(txns: Txn[], days = 7): DayTotal[] {
-  const start = startOfToday();
-  start.setDate(start.getDate() - (days - 1));
+// Paid amount per local day from the day of `from` up to the day of `to` (excluded), oldest first.
+export function dailyReceived(txns: Txn[], from: Date, to: Date): DayTotal[] {
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const days = Math.round((new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime() - start.getTime()) / 86_400_000);
   const out: DayTotal[] = Array.from({ length: days }, (_, i) => {
     const date = new Date(start);
     date.setDate(start.getDate() + i);

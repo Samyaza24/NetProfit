@@ -494,15 +494,15 @@ export interface DayTotal {
   amount: number;
 }
 
-// Paid amount per local day for the last `days` days, oldest first.
-export async function getDailyReceived(days = 7): Promise<DayTotal[]> {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (days - 1));
+// Paid amount per local day from the day of `from` up to (not including) the day of `to`, oldest first.
+export async function getDailyReceived(from: Date, to: Date): Promise<DayTotal[]> {
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const days = Math.round((new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime() - start.getTime()) / 86_400_000);
   const db = await getDb();
   const rows = await db.getAllAsync<{ timestamp: string; amount_received: number }>(
-    "SELECT timestamp, amount_received FROM transactions WHERE status = 'Paid' AND timestamp >= ?",
-    new Date(start.getTime() - 86_400_000).toISOString()
+    "SELECT timestamp, amount_received FROM transactions WHERE status = 'Paid' AND timestamp >= ? AND timestamp < ?",
+    new Date(start.getTime() - 86_400_000).toISOString(),
+    new Date(start.getTime() + (days + 1) * 86_400_000).toISOString()
   );
   const out: DayTotal[] = Array.from({ length: days }, (_, i) => {
     const date = new Date(start);
@@ -523,20 +523,32 @@ export interface Totals {
   expenses: number;
 }
 
-// since is an ISO timestamp lower bound, or null for all time.
-export async function getTotals(since: string | null): Promise<Totals> {
+// since is an ISO lower bound (included) and until an ISO upper bound (excluded); null means no limit.
+export async function getTotals(since: string | null, until: string | null = null): Promise<Totals> {
   const db = await getDb();
   const from = since ?? "";
+  const to = until ?? "9999";
   const t = await db.getFirstAsync<{ received: number; unpaid: number }>(
     `SELECT COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount_received END), 0) AS received,
             COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount_received END), 0) AS unpaid
-     FROM transactions WHERE timestamp >= ?`,
-    from
+     FROM transactions WHERE timestamp >= ? AND timestamp < ?`,
+    from,
+    to
   );
   const e = await db.getFirstAsync<{ expenses: number }>(
-    "SELECT COALESCE(SUM(amount), 0) AS expenses FROM expenses WHERE timestamp >= ?",
-    from
+    "SELECT COALESCE(SUM(amount), 0) AS expenses FROM expenses WHERE timestamp >= ? AND timestamp < ?",
+    from,
+    to
   );
   return { received: t?.received ?? 0, unpaid: t?.unpaid ?? 0, expenses: e?.expenses ?? 0 };
+}
+
+// The oldest sale or expense, to know how far back the month picker can go; null when nothing is recorded.
+export async function getFirstActivity(): Promise<Date | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ first: string | null }>(
+    "SELECT MIN(ts) AS first FROM (SELECT MIN(timestamp) AS ts FROM transactions UNION ALL SELECT MIN(timestamp) FROM expenses)"
+  );
+  return row?.first ? parseTs(row.first) : null;
 }
 

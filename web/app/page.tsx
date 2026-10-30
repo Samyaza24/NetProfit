@@ -10,7 +10,7 @@ import Icon from "@/components/Icon";
 import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, Segmented, StatCard, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { connectionsByCustomer, CustomerStatus, urgency } from "@/lib/connection";
-import { formatPHP } from "@/lib/format";
+import { formatPHP, parseTs } from "@/lib/format";
 import { dailyReceived, Exp, startOfMonth, totals, Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
 
@@ -42,6 +42,9 @@ export default function DashboardPage() {
   const [connFilter, setConnFilter] = useState<ConnFilter>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "cutoff", dir: 1 });
   const [limit, setLimit] = useState(PAGE);
+  const [allTime, setAllTime] = useState(false);
+  const [period, setPeriod] = useState(startOfMonth);
+  const [day, setDay] = useState<Date | null>(null);
 
   const conns = useMemo(() => connectionsByCustomer(data?.[1] ?? [], data?.[3] ?? []), [data]);
   const dueCount = (data?.[0] ?? []).filter((r) => conns.get(r.id)?.due).length;
@@ -89,7 +92,17 @@ export default function DashboardPage() {
   }
 
   const [, txns, exps] = data;
-  const month = totals(txns, exps, startOfMonth());
+  const monthEnd = new Date(period.getFullYear(), period.getMonth() + 1, 1);
+  const shownTotals = allTime ? totals(txns, exps, null) : day ? totals(txns, exps, day, new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)) : totals(txns, exps, period, monthEnd);
+  const firstTs = [...txns.map((t) => t.timestamp), ...exps.map((e) => e.timestamp)].map((t) => parseTs(t).getTime());
+  const first = firstTs.length ? new Date(Math.min(...firstTs)) : null;
+  const canBack = first !== null && period > new Date(first.getFullYear(), first.getMonth(), 1);
+  const canForward = period < startOfMonth();
+  const label = allTime ? "all time" : day ? day.toLocaleDateString("en-PH", { dateStyle: "medium" }) : period.toLocaleDateString("en-PH", { month: "long", year: "numeric" });
+  const step = (n: number) => {
+    setPeriod(new Date(period.getFullYear(), period.getMonth() + n, 1));
+    setDay(null);
+  };
 
   return (
     <>
@@ -99,22 +112,52 @@ export default function DashboardPage() {
         </button>
       </PageHeader>
 
-      <div className="stat-grid">
-        <StatCard
-          tone={month.net < 0 ? "loss" : "hero"}
-          label="Net profit this month"
-          value={<CountUp value={month.net} />}
-          sub="Received minus expenses"
+      <div className="toolbar">
+        <Segmented
+          label="Period"
+          options={[["month", "Month"], ["all", "All time"]]}
+          value={allTime ? "all" : "month"}
+          onChange={(v) => {
+            setAllTime(v === "all");
+            setDay(null);
+          }}
         />
-        <StatCard label="Received" value={formatPHP(month.received)} sub="Paid sales this month" />
-        <StatCard label="Expenses" value={formatPHP(month.expenses)} sub="This month" />
-        <StatCard tone={month.unpaid > 0 ? "neg" : undefined} label="Unpaid" value={formatPHP(month.unpaid)} sub="Sales not yet paid this month" />
+        {!allTime && (
+          <>
+            <button className="btn secondary" onClick={() => step(-1)} disabled={!canBack} aria-label="Previous month">
+              &lt;
+            </button>
+            <strong>{period.toLocaleDateString("en-PH", { month: "long", year: "numeric" })}</strong>
+            <button className="btn secondary" onClick={() => step(1)} disabled={!canForward} aria-label="Next month">
+              &gt;
+            </button>
+            {day && (
+              <button className="chip" onClick={() => setDay(null)}>
+                Whole month
+              </button>
+            )}
+          </>
+        )}
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h2>Last 7 days received</h2>
-        <BarChart data={dailyReceived(txns, 7)} />
+      <div className="stat-grid">
+        <StatCard
+          tone={shownTotals.net < 0 ? "loss" : "hero"}
+          label={`Net profit - ${label}`}
+          value={<CountUp value={shownTotals.net} />}
+          sub="Received minus expenses"
+        />
+        <StatCard label="Received" value={formatPHP(shownTotals.received)} sub={`Paid sales, ${label}`} />
+        <StatCard label="Expenses" value={formatPHP(shownTotals.expenses)} sub={label} />
+        <StatCard tone={shownTotals.unpaid > 0 ? "neg" : undefined} label="Unpaid" value={formatPHP(shownTotals.unpaid)} sub={`Sales not yet paid, ${label}`} />
       </div>
+
+      {!allTime && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h2>Received per day</h2>
+          <BarChart data={dailyReceived(txns, period, monthEnd)} picked={day?.getTime()} onPick={setDay} />
+        </div>
+      )}
 
       <div className="toolbar">
         <input

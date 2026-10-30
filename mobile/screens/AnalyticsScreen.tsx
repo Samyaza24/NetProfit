@@ -1,28 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
-import { getDailyReceived, getTotals } from "../db/repo";
-import { Card, ErrorState } from "../ui/components";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Easing, Pressable, RefreshControl, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { DayTotal, getDailyReceived, getFirstActivity, getTotals, Totals } from "../db/repo";
+import { formatDate } from "../lib/format";
+import { Card, Chip, ErrorState, Segmented } from "../ui/components";
 import CountUp from "../ui/CountUp";
-import { formatPHP, Palette, radius, space, type } from "../ui/theme";
+import Icon from "../ui/Icon";
+import { formatPHP, Palette, radius, space, TOUCH, type } from "../ui/theme";
 import { useStyles, useTheme } from "../ui/ThemeContext";
 import { useLoad } from "../ui/useLoad";
 import { useReducedMotion } from "../ui/useReducedMotion";
 
-function startOfToday(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
-}
+type Mode = "month" | "all";
 
-function startOfMonth(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
-}
-
-const PERIODS: [string, () => string | null][] = [
-  ["Today", startOfToday],
-  ["This month", startOfMonth],
-  ["All time", () => null],
-];
+const firstOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const monthName = (d: Date) => d.toLocaleDateString("en-PH", { month: "long", year: "numeric" });
 
 const BAR_AREA = 100;
 
@@ -42,76 +35,117 @@ function GrowBar({ height, style }: { height: number; style: StyleProp<ViewStyle
   return <Animated.View style={[style, { height, transformOrigin: "bottom", transform: [{ scaleY: v }] }]} />;
 }
 
-const load = async () => {
-  const totals = await Promise.all(PERIODS.map(([, since]) => getTotals(since())));
-  return { totals, daily: await getDailyReceived(7) };
-};
-
 export default function AnalyticsScreen({ active = true }: { active?: boolean }) {
   const { colors } = useTheme();
   const s = useStyles(makeStyles);
+  const [mode, setMode] = useState<Mode>("month");
+  const [month, setMonth] = useState(() => firstOfMonth(new Date()));
+  const [day, setDay] = useState<Date | null>(null);
+
+  // Totals for the chosen day, month or all time, plus the daily bars for the month.
+  const monthKey = month.getTime();
+  const dayKey = day?.getTime() ?? 0;
+  const load = useCallback(async () => {
+    const first = await getFirstActivity();
+    if (mode === "all") return { first, totals: await getTotals(null), daily: null as DayTotal[] | null };
+    const m = new Date(monthKey);
+    const [from, to] = dayKey ? [new Date(dayKey), addDays(new Date(dayKey), 1)] : [m, addMonths(m, 1)];
+    const [totals, daily] = await Promise.all([getTotals(from.toISOString(), to.toISOString()), getDailyReceived(m, addMonths(m, 1))]);
+    return { first, totals, daily };
+  }, [mode, monthKey, dayKey]);
+
   const { data, error, refreshing, reload } = useLoad(load, active);
   if (error && !data) return <ErrorState message={error} onRetry={reload} />;
   if (!data) return <ActivityIndicator style={s.loading} color={colors.primary} />;
-  const { totals, daily } = data;
+  const { first, totals, daily } = data;
 
-  const max = Math.max(1, ...daily.map((d) => d.amount));
-  const month = totals[1];
-  const monthNet = month.received - month.expenses;
+  const t: Totals = totals;
+  const net = t.received - t.expenses;
+  const canGoBack = first !== null && monthKey > firstOfMonth(first).getTime();
+  const canGoForward = monthKey < firstOfMonth(new Date()).getTime();
+  const max = Math.max(1, ...(daily ?? []).map((d) => d.amount));
+  const label = mode === "all" ? "all time" : day ? formatDate(day) : monthName(month);
+
+  function step(n: number) {
+    setMonth(addMonths(month, n));
+    setDay(null);
+  }
 
   return (
     <ScrollView contentContainerStyle={s.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={reload} />}>
-      {totals[2].received === 0 && totals[2].expenses === 0 && (
-        <Text style={s.note}>Nothing recorded yet. Record a sale or an expense and your totals appear here.</Text>
+      <Segmented
+        options={[
+          ["month", "Month"],
+          ["all", "All time"],
+        ]}
+        value={mode}
+        onChange={(m) => {
+          setMode(m);
+          setDay(null);
+        }}
+        label="Period"
+      />
+
+      {mode === "month" && (
+        <View style={s.stepper}>
+          <Pressable style={[s.arrow, !canGoBack && s.arrowOff]} disabled={!canGoBack} onPress={() => step(-1)} accessibilityRole="button" accessibilityLabel="Previous month">
+            <Icon name="chevron-back" size={24} color={colors.text} />
+          </Pressable>
+          <Text style={s.monthText} accessibilityRole="header">
+            {monthName(month)}
+          </Text>
+          <Pressable style={[s.arrow, !canGoForward && s.arrowOff]} disabled={!canGoForward} onPress={() => step(1)} accessibilityRole="button" accessibilityLabel="Next month">
+            <Icon name="chevron-forward" size={24} color={colors.text} />
+          </Pressable>
+        </View>
       )}
-      <View style={[s.hero, monthNet < 0 && s.heroLoss]}>
-        <Text style={s.heroLabel}>Net profit this month</Text>
-        <CountUp value={monthNet} style={s.heroValue} />
+
+      <View style={[s.hero, net < 0 && s.heroLoss]}>
+        <Text style={s.heroLabel}>Net profit - {label}</Text>
+        <CountUp value={net} style={s.heroValue} />
         <Text style={s.heroSub}>
-          {formatPHP(month.received)} received - {formatPHP(month.expenses)} expenses
+          {formatPHP(t.received)} received - {formatPHP(t.expenses)} expenses
         </Text>
       </View>
+      {t.unpaid > 0 && <Text style={s.loss}>Unpaid: {formatPHP(t.unpaid)}</Text>}
+      {t.received === 0 && t.expenses === 0 && t.unpaid === 0 && <Text style={s.note}>Nothing recorded in this period.</Text>}
 
-      {PERIODS.map(([label], i) => {
-        if (i === 1) return null;
-        const t = totals[i];
-        const net = t.received - t.expenses;
-        return (
-          <Card key={label}>
+      {daily && (
+        <Card>
+          <View style={s.cardHead}>
             <Text style={s.title} accessibilityRole="header">
-              {label}
+              Received per day
             </Text>
-            <Text style={s.line}>Received: {formatPHP(t.received)}</Text>
-            <Text style={s.line}>Expenses: {formatPHP(t.expenses)}</Text>
-            <Text style={[s.net, net < 0 && s.loss]}>Net profit: {formatPHP(net)}</Text>
-            {t.unpaid > 0 && <Text style={s.loss}>Unpaid: {formatPHP(t.unpaid)}</Text>}
-          </Card>
-        );
-      })}
-
-      <Card>
-        <Text style={s.title} accessibilityRole="header">
-          Last 7 days (received)
-        </Text>
-        <View style={s.chart}>
-          {daily.map((d) => (
-            <View
-              key={d.date.toISOString()}
-              style={s.col}
-              accessible
-              accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
-            >
-              <Text style={s.value} maxFontSizeMultiplier={1.3} numberOfLines={1}>
-                {d.amount > 0 ? Math.round(d.amount) : ""}
-              </Text>
-              <GrowBar height={Math.max(2, (d.amount / max) * BAR_AREA)} style={s.bar} />
-              <Text style={s.day} maxFontSizeMultiplier={1.3}>
-                {d.date.toLocaleDateString("en-PH", { weekday: "short" })}
-              </Text>
+            {day && <Chip label="Whole month" selected={false} onPress={() => setDay(null)} />}
+          </View>
+          <Text style={s.note}>Tap a day to see only that day.</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={s.chart}>
+              {daily.map((d) => {
+                const picked = day !== null && d.date.getTime() === day.getTime();
+                return (
+                  <Pressable
+                    key={d.date.toISOString()}
+                    style={[s.col, picked && s.colPicked]}
+                    onPress={() => setDay(picked ? null : d.date)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: picked }}
+                    accessibilityLabel={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
+                  >
+                    <Text style={s.value} maxFontSizeMultiplier={1.3} numberOfLines={1}>
+                      {d.amount > 0 ? Math.round(d.amount) : ""}
+                    </Text>
+                    <GrowBar height={Math.max(2, (d.amount / max) * BAR_AREA)} style={[s.bar, picked && s.barPicked]} />
+                    <Text style={s.day} maxFontSizeMultiplier={1.3}>
+                      {d.date.getDate()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          ))}
-        </View>
-      </Card>
+          </ScrollView>
+        </Card>
+      )}
 
       <Text style={s.note}>Based on data on this phone. Sync first for the latest totals.</Text>
     </ScrollView>
@@ -121,18 +155,23 @@ export default function AnalyticsScreen({ active = true }: { active?: boolean })
 const makeStyles = (colors: Palette) => StyleSheet.create({
   loading: { marginTop: space.xl },
   container: { padding: space.lg, gap: space.md },
-  title: { fontSize: type.title, fontWeight: "700", color: colors.text, marginBottom: space.xs },
-  line: { fontSize: type.body, color: colors.text },
-  net: { fontSize: type.body, fontWeight: "700", color: colors.success, marginTop: space.xs },
-  loss: { color: colors.danger, fontSize: type.body },
-  chart: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: space.sm },
-  col: { flex: 1, alignItems: "center", justifyContent: "flex-end", gap: space.xs },
+  title: { fontSize: type.title, fontWeight: "700", color: colors.text },
+  cardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  loss: { color: colors.danger, fontSize: type.body, fontWeight: "600" },
+  stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  arrow: { width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center" },
+  arrowOff: { opacity: 0.3 },
+  monthText: { fontSize: type.title, fontWeight: "700", color: colors.text },
+  chart: { flexDirection: "row", alignItems: "flex-end", marginTop: space.sm },
+  col: { width: 36, alignItems: "center", justifyContent: "flex-end", gap: space.xs, paddingVertical: space.xs, borderRadius: radius.sm },
+  colPicked: { backgroundColor: colors.border },
   hero: { padding: space.lg, borderRadius: radius.md, backgroundColor: colors.success, gap: space.xs },
   heroLoss: { backgroundColor: colors.danger },
   heroLabel: { fontSize: type.small, fontWeight: "700", color: colors.primaryText, textTransform: "uppercase" },
   heroValue: { fontSize: type.hero, fontWeight: "800", color: colors.primaryText },
   heroSub: { fontSize: type.small, color: colors.primaryText },
   bar: { width: "60%", backgroundColor: colors.accent, borderRadius: radius.sm },
+  barPicked: { backgroundColor: colors.primary },
   value: { fontSize: type.tiny, color: colors.muted, minHeight: 16 },
   day: { fontSize: type.tiny, color: colors.muted },
   note: { color: colors.muted, fontSize: type.small },
