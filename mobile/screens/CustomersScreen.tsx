@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { CustomerSummary, listConnections, listCustomerSummaries } from "../db/repo";
-import { Connection, cutoffText } from "../lib/connection";
+import { Connection, cutoffText, urgency } from "../lib/connection";
 import { plural } from "../lib/format";
 import { Badge, Chip, EmptyState, ErrorState } from "../ui/components";
 import ClearableInput from "../ui/ClearableInput";
@@ -21,7 +21,7 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
   const s = useStyles(makeStyles);
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
-  const [connFilter, setConnFilter] = useState<"all" | "connected" | "cutoff">("all");
+  const [connFilter, setConnFilter] = useState<"all" | "due" | "connected" | "cutoff">("all");
   const [selected, setSelected] = useState<CustomerSummary | null>(null);
 
   // Reloads when the tab is shown again and every time the detail view closes, so a cut-off made
@@ -64,16 +64,19 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
   if (error && !rows) return <ErrorState message={error} onRetry={reload} />;
   if (!rows) return <ActivityIndicator style={s.loading} color={colors.primary} />;
 
-  // Soonest cut-off first when looking at connected customers; otherwise biggest debt first.
-  const expiry = (id: string) => conns[id]?.expiry ?? Infinity;
+  // Cut-off order (oldest due first) for Due, soonest cut-off first for All and Connected; Cut off and Owes go by debt.
+  const key = (id: string) => urgency(conns[id]);
+  const dueCount = rows.filter((r) => conns[r.id]?.due).length;
   const shown = rows
     .filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
     .filter((r) => !owesOnly || r.outstanding_debt > 0)
-    .filter((r) => connFilter === "all" || conns[r.id]?.state === connFilter)
+    .filter((r) => (connFilter === "all" ? true : connFilter === "due" ? conns[r.id]?.due : conns[r.id]?.state === connFilter))
     .sort((a, b) =>
-      connFilter === "connected"
-        ? expiry(a.id) - expiry(b.id) || a.name.localeCompare(b.name)
-        : b.outstanding_debt - a.outstanding_debt || a.name.localeCompare(b.name)
+      connFilter === "due"
+        ? (conns[a.id]?.expiry ?? 0) - (conns[b.id]?.expiry ?? 0) || a.name.localeCompare(b.name)
+        : connFilter === "cutoff" || owesOnly
+          ? b.outstanding_debt - a.outstanding_debt || a.name.localeCompare(b.name)
+          : key(a.id) - key(b.id) || b.outstanding_debt - a.outstanding_debt || a.name.localeCompare(b.name)
     );
 
   // Say why the list is empty, and what to do about it.
@@ -84,9 +87,11 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
         ? `No client matches "${query.trim()}".`
         : owesOnly
           ? "Nobody owes anything."
-          : connFilter === "cutoff"
-            ? "Nobody is cut off right now."
-            : "Nobody is connected right now.";
+          : connFilter === "due"
+            ? "Nobody is due for cutoff today."
+            : connFilter === "cutoff"
+              ? "Nobody is cut off right now."
+              : "Nobody is connected right now.";
 
   return (
     <View style={s.container}>
@@ -103,6 +108,7 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
       />
       <View style={s.filters}>
         <Chip role="radio" label="All" selected={connFilter === "all"} onPress={() => setConnFilter("all")} />
+        <Chip role="radio" label={`Due today (${dueCount})`} selected={connFilter === "due"} onPress={() => setConnFilter("due")} />
         <Chip role="radio" label="Connected" selected={connFilter === "connected"} onPress={() => setConnFilter("connected")} />
         <Chip role="radio" label="Cut off" selected={connFilter === "cutoff"} onPress={() => setConnFilter("cutoff")} />
         <Chip role="checkbox" label="Owes" selected={owesOnly} onPress={() => setOwesOnly(!owesOnly)} />

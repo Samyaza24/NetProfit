@@ -9,7 +9,7 @@ import CountUp from "@/components/CountUp";
 import Icon from "@/components/Icon";
 import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, Segmented, StatCard, TableSkeleton } from "@/components/ui";
 import { apiGet } from "@/lib/api";
-import { connectionsByCustomer, CustomerStatus } from "@/lib/connection";
+import { connectionsByCustomer, CustomerStatus, urgency } from "@/lib/connection";
 import { formatPHP } from "@/lib/format";
 import { dailyReceived, Exp, startOfMonth, totals, Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
@@ -23,9 +23,7 @@ interface DashboardRow {
 }
 
 type SortKey = "name" | "cutoff" | "total_visits" | "lifetime_value" | "outstanding_debt";
-type ConnFilter = "all" | "connected" | "cutoff";
-
-const CONN_FILTERS: [ConnFilter, string][] = [["all", "All"], ["connected", "Connected"], ["cutoff", "Cut off"]];
+type ConnFilter = "all" | "due" | "connected" | "cutoff";
 
 const PAGE = 25;
 const load = () =>
@@ -42,23 +40,24 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [owesOnly, setOwesOnly] = useState(false);
   const [connFilter, setConnFilter] = useState<ConnFilter>("all");
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "outstanding_debt", dir: -1 });
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "cutoff", dir: 1 });
   const [limit, setLimit] = useState(PAGE);
 
   const conns = useMemo(() => connectionsByCustomer(data?.[1] ?? [], data?.[3] ?? []), [data]);
+  const dueCount = (data?.[0] ?? []).filter((r) => conns.get(r.id)?.due).length;
+  const connFilters: [ConnFilter, string][] = [["all", "All"], ["due", `Due today (${dueCount})`], ["connected", "Connected"], ["cutoff", "Cut off"]];
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (data?.[0] ?? [])
       .filter((r) => r.name.toLowerCase().includes(q) && (!owesOnly || r.outstanding_debt > 0))
-      .filter((r) => connFilter === "all" || conns.get(r.id)?.state === connFilter)
+      .filter((r) => (connFilter === "all" ? true : connFilter === "due" ? conns.get(r.id)?.due : conns.get(r.id)?.state === connFilter))
       .sort((a, b) => {
-        const expiry = (id: string) => conns.get(id)?.expiry ?? Infinity;
         const diff =
           sort.key === "name"
             ? a.name.localeCompare(b.name)
             : sort.key === "cutoff"
-              ? expiry(a.id) - expiry(b.id)
+              ? urgency(conns.get(a.id)) - urgency(conns.get(b.id))
               : a[sort.key] - b[sort.key];
         return diff * sort.dir || a.name.localeCompare(b.name);
       });
@@ -132,7 +131,7 @@ export default function DashboardPage() {
         <button className="chip" aria-pressed={owesOnly} onClick={() => setOwesOnly(!owesOnly)}>
           Owes
         </button>
-        <Segmented label="Connection" options={CONN_FILTERS} value={connFilter} onChange={setConnFilter} />
+        <Segmented label="Connection" options={connFilters} value={connFilter} onChange={setConnFilter} />
         <span className="spacer" />
         <span style={{ color: "var(--muted)" }}>{rows.length} customers</span>
       </div>

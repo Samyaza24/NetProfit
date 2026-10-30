@@ -1,4 +1,4 @@
-import { parseTs } from "./format";
+﻿import { parseTs } from "./format";
 import { Txn } from "./stats";
 
 export type ConnState = "connected" | "cutoff" | "none";
@@ -8,6 +8,8 @@ export interface Connection {
   expiry: number | null;
   // True when the operator cut the customer off before their plan ended.
   manual: boolean;
+  // True when the plan's last day is today or past and the operator has not cut the customer off yet.
+  due: boolean;
 }
 
 // Local midnight n calendar days after the day of `ms`.
@@ -31,10 +33,10 @@ export function connectionOf(plans: { at: number; days: number }[], now = Date.n
     lastBuy = Math.max(lastBuy, p.at);
   }
   if (manualAt !== null && manualAt >= lastBuy) {
-    return { state: "cutoff", expiry: end === null ? manualAt : Math.min(end, manualAt), manual: end === null || manualAt < end };
+    return { state: "cutoff", expiry: end === null ? manualAt : Math.min(end, manualAt), manual: end === null || manualAt < end, due: false };
   }
-  if (end === null) return { state: "none", expiry: null, manual: false };
-  return { state: end > now ? "connected" : "cutoff", expiry: end, manual: false };
+  if (end === null) return { state: "none", expiry: null, manual: false, due: false };
+  return { state: end > now ? "connected" : "cutoff", expiry: end, manual: false, due: end <= dayStart(now, 1) };
 }
 
 export interface CustomerStatus {
@@ -68,6 +70,10 @@ export interface CutoffInfo {
   rel: string;
   manual: boolean;
 }
+
+// Sort key for lists: soonest cutoff first, then the most recently cut off, then clients with no plan.
+export const urgency = (c: Connection | undefined): number =>
+  !c || c.expiry === null ? Infinity : c.state === "connected" ? c.expiry : 1e15 - c.expiry;
 
 // "7 days left" (today counts), "1 day left", "yesterday", "2 days ago", by calendar day.
 function dayRelative(ms: number, now: number): string {
