@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-nativ
 import { CustomerSummary, getCustomer, listCustomerTransactions, markTransactionPaid, parseTs, setCustomerStatus, Transaction } from "../db/repo";
 import { connectionOf, cutoffText } from "../lib/connection";
 import { friendlyError } from "../lib/errors";
-import { formatDateTime, plural, tierName } from "../lib/format";
+import { formatDate, formatDateTime, plural, tierName } from "../lib/format";
 import { Badge, Button, Card, EmptyState, ErrorState } from "../ui/components";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { formatPHP, Palette, space, type } from "../ui/theme";
@@ -71,6 +71,7 @@ export default function CustomerDetailScreen({ customer, onBack, onSellAgain }: 
         <Text style={[s.line, s.status, conn.state === "connected" ? { color: colors.success } : conn.state === "cutoff" ? { color: colors.warning } : null]}>
           Wi-Fi: {conn.state === "connected" ? "Connected" : conn.state === "cutoff" ? "Cut off" : "No plan"}
         </Text>
+        {rows.length > 0 && <Text style={s.line}>Connected since {formatDate(new Date(Math.min(...rows.map((r) => parseTs(r.timestamp).getTime()))))}</Text>}
         <Text style={s.line}>{cutoffText(conn)}</Text>
         <Text style={s.line}>{plural(rows.length, "visit")}</Text>
         <Text style={s.line}>Total spent: {formatPHP(paid)}</Text>

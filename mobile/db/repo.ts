@@ -427,6 +427,8 @@ export interface CustomerSummary {
   total_visits: number;
   lifetime_value: number;
   outstanding_debt: number;
+  // When the first plan was bought (the day they started connecting); null if they never bought one.
+  first_purchase: string | null;
 }
 
 // Same definitions as the backend dashboard: value is Paid sum, debt is Unpaid sum.
@@ -434,6 +436,7 @@ export async function listCustomerSummaries(): Promise<CustomerSummary[]> {
   const db = await getDb();
   return db.getAllAsync<CustomerSummary>(
     `SELECT c.id, c.name,
+            MIN(t.timestamp) AS first_purchase,
             COUNT(t.id) AS total_visits,
             COALESCE(SUM(CASE WHEN t.status = 'Paid' THEN t.amount_received END), 0) AS lifetime_value,
             COALESCE(SUM(CASE WHEN t.status = 'Unpaid' THEN t.amount_received END), 0) AS outstanding_debt

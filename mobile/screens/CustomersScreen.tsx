@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
-import { CustomerSummary, listConnections, listCustomerSummaries } from "../db/repo";
+import { CustomerSummary, listConnections, listCustomerSummaries, parseTs } from "../db/repo";
 import { Connection, cutoffText, urgency } from "../lib/connection";
-import { plural } from "../lib/format";
+import { formatDate, plural } from "../lib/format";
 import { Badge, Chip, EmptyState, ErrorState } from "../ui/components";
 import ClearableInput from "../ui/ClearableInput";
 import { useLoad } from "../ui/useLoad";
@@ -125,7 +125,7 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
           return (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${item.name}. ${plural(item.total_visits, "visit")}. ${cutoffText(conn)}.${
+              accessibilityLabel={`${item.name}.${item.first_purchase ? ` Connected since ${formatDate(parseTs(item.first_purchase))}.` : ""} ${plural(item.total_visits, "visit")}. ${cutoffText(conn)}.${
                 item.outstanding_debt > 0 ? ` Owes ${formatPHP(item.outstanding_debt)}.` : ""
               }`}
               onPress={() => setSelected(item)}
@@ -139,6 +139,7 @@ export default function CustomersScreen({ active = true, onSellAgain }: { active
                   {item.name}
                 </Text>
                 <Text style={s.muted}>
+                  {item.first_purchase ? `Since ${formatDate(parseTs(item.first_purchase))} - ` : ""}
                   {plural(item.total_visits, "visit")} - paid {formatPHP(item.lifetime_value)}
                 </Text>
                 <Text style={[s.status, conn?.state === "connected" ? s.on : conn?.state === "cutoff" ? s.off : s.muted]}>
