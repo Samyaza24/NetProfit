@@ -11,7 +11,7 @@ import { Badge, CardsSkeleton, EmptyState, ErrorState, PageHeader, Segmented, St
 import { apiGet } from "@/lib/api";
 import { connectionsByCustomer, CustomerStatus, urgency } from "@/lib/connection";
 import { formatPHP, parseTs } from "@/lib/format";
-import { dailyReceived, Exp, startOfMonth, totals, Txn } from "@/lib/stats";
+import { dailyReceived, Exp, monthlyTotals, startOfMonth, totals, Txn } from "@/lib/stats";
 import { useFetch } from "@/lib/useFetch";
 
 interface DashboardRow {
@@ -99,6 +99,14 @@ export default function DashboardPage() {
   const canBack = first !== null && period > new Date(first.getFullYear(), first.getMonth(), 1);
   const canForward = period < startOfMonth();
   const label = allTime ? "all time" : day ? day.toLocaleDateString("en-PH", { dateStyle: "medium" }) : period.toLocaleDateString("en-PH", { month: "long", year: "numeric" });
+  const daily = dailyReceived(txns, period, monthEnd);
+  const prevMonth = new Date(period.getFullYear(), period.getMonth() - 1, 1);
+  const prevTotals = !day && canBack ? totals(txns, exps, prevMonth, period) : null;
+  const prevNet = prevTotals ? prevTotals.net : null;
+  const gap = prevNet === null ? 0 : shownTotals.net - prevNet;
+  const months = monthlyTotals(txns, exps);
+  const monthNets = months.map((m) => m.received - m.expenses);
+  const bestMonth = months.length ? months[monthNets.indexOf(Math.max(...monthNets))] : null;
   const step = (n: number) => {
     setPeriod(new Date(period.getFullYear(), period.getMonth() + n, 1));
     setDay(null);
@@ -152,10 +160,73 @@ export default function DashboardPage() {
         <StatCard tone={shownTotals.unpaid > 0 ? "neg" : undefined} label="Unpaid" value={formatPHP(shownTotals.unpaid)} sub={`Sales not yet paid, ${label}`} />
       </div>
 
+      {!allTime && prevNet !== null && (
+        <p style={{ color: gap < 0 ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>
+          {gap === 0 ? "Same as" : `${gap > 0 ? "Up" : "Down"} ${formatPHP(Math.abs(gap))} from`} {prevMonth.toLocaleDateString("en-PH", { month: "long" })}
+        </p>
+      )}
+
       {!allTime && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <h2>Received per day</h2>
-          <BarChart data={dailyReceived(txns, period, monthEnd)} picked={day?.getTime()} onPick={setDay} />
+          <h2>Pick a day</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: 6, marginBottom: 12 }}>
+            {daily.map((d) => {
+              const picked = day?.getTime() === d.date.getTime();
+              return (
+                <button
+                  key={d.date.toISOString()}
+                  className="chip"
+                  aria-pressed={picked}
+                  disabled={d.date > new Date()}
+                  onClick={() => setDay(picked ? null : d.date)}
+                  title={`${d.date.toDateString()}: ${formatPHP(d.amount)}`}
+                >
+                  {d.date.getDate()}
+                  {d.amount > 0 && <small style={{ display: "block", opacity: 0.8 }}>{Math.round(d.amount)}</small>}
+                </button>
+              );
+            })}
+          </div>
+          <BarChart data={daily} picked={day?.getTime()} onPick={setDay} />
+        </div>
+      )}
+
+      {allTime && (
+        <div className="table-wrap" style={{ marginBottom: 16 }}>
+          <table className="table">
+            <caption>Month by month</caption>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th className="num">Received</th>
+                <th className="num">Expenses</th>
+                <th className="num">Net profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m) => (
+                <tr
+                  key={m.month.getTime()}
+                  className="clickable"
+                  onClick={() => {
+                    setPeriod(m.month);
+                    setDay(null);
+                    setAllTime(false);
+                  }}
+                >
+                  <td>{m.month.toLocaleDateString("en-PH", { month: "long", year: "numeric" })}</td>
+                  <td className="num">{formatPHP(m.received)}</td>
+                  <td className="num">{formatPHP(m.expenses)}</td>
+                  <td className="num">{formatPHP(m.received - m.expenses)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {bestMonth && (
+            <p style={{ color: "var(--muted)" }}>
+              Best month: {bestMonth.month.toLocaleDateString("en-PH", { month: "long", year: "numeric" })}, {formatPHP(bestMonth.received - bestMonth.expenses)}. Average per month: {formatPHP(monthNets.reduce((a, b) => a + b, 0) / (monthNets.length || 1))}.
+            </p>
+          )}
         </div>
       )}
 

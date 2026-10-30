@@ -50,6 +50,27 @@ export function totals(txns: Txn[], exps: Exp[], since: Date | null, until: Date
   return { received, unpaid, expenses, net: received - expenses };
 }
 
+export interface MonthTotal {
+  month: Date;
+  received: number;
+  expenses: number;
+}
+
+// Received (Paid) and expenses for every month with activity, newest first, by local month.
+export function monthlyTotals(txns: Txn[], exps: Exp[]): MonthTotal[] {
+  const months = new Map<number, MonthTotal>();
+  const bucket = (ts: string) => {
+    const d = parseTs(ts);
+    const month = new Date(d.getFullYear(), d.getMonth(), 1);
+    const row = months.get(month.getTime()) ?? { month, received: 0, expenses: 0 };
+    months.set(month.getTime(), row);
+    return row;
+  };
+  for (const t of txns) if (t.status === "Paid") bucket(t.timestamp).received += t.amount_received;
+  for (const e of exps) bucket(e.timestamp).expenses += e.amount;
+  return [...months.values()].sort((a, b) => b.month.getTime() - a.month.getTime());
+}
+
 export interface DayTotal {
   date: Date;
   amount: number;
