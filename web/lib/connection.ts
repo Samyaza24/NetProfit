@@ -69,12 +69,11 @@ export interface CutoffInfo {
   manual: boolean;
 }
 
-// "today", "tomorrow", "in 3 days", "yesterday", "2 days ago", by calendar day.
+// "7 days left" (today counts), "1 day left", "yesterday", "2 days ago", by calendar day.
 function dayRelative(ms: number, now: number): string {
   const diff = Math.round((dayStart(ms) - dayStart(now)) / 86_400_000);
-  if (diff === 0) return "today";
-  if (Math.abs(diff) === 1) return diff > 0 ? "tomorrow" : "yesterday";
-  return diff > 0 ? `in ${diff} days` : `${-diff} days ago`;
+  if (diff >= 0) return `${diff + 1} day${diff === 0 ? "" : "s"} left`;
+  return diff === -1 ? "yesterday" : `${-diff} days ago`;
 }
 
 // When the customer is (or was) cut off; null if they never bought a plan and were never cut off.

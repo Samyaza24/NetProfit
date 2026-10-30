@@ -45,15 +45,14 @@ function relative(ms: number, now: number): string {
   return ms >= now ? `in ${text}` : `${text} ago`;
 }
 
-// "today", "tomorrow", "in 3 days", "yesterday", "2 days ago", by calendar day.
+// "7 days left" (today counts), "1 day left", "yesterday", "2 days ago", by calendar day.
 function dayRelative(ms: number, now: number): string {
   const diff = Math.round((dayStart(ms) - dayStart(now)) / 86_400_000);
-  if (diff === 0) return "today";
-  if (Math.abs(diff) === 1) return diff > 0 ? "tomorrow" : "yesterday";
-  return diff > 0 ? `in ${diff} days` : `${-diff} days ago`;
+  if (diff >= 0) return `${diff + 1} day${diff === 0 ? "" : "s"} left`;
+  return diff === -1 ? "yesterday" : `${-diff} days ago`;
 }
 
-// "Cuts off Nov 5, 2026 (in 6 days)", "Cut off Nov 5, 2026 (yesterday)", "Cut off by you Oct 20, 2026, 3:00 PM (9 days ago)".
+// "Cuts off Nov 5, 2026 (7 days left)", "Cut off Nov 5, 2026 (yesterday)", "Cut off by you Oct 20, 2026, 3:00 PM (9 days ago)".
 export function cutoffText(c: Connection | undefined, now = Date.now()): string {
   if (!c || c.expiry === null) return "No plan bought yet";
   if (c.manual) return `Cut off by you ${formatDateTime(c.expiry)} (${relative(c.expiry, now)})`;
