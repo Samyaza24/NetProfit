@@ -521,6 +521,7 @@ export interface Totals {
   received: number;
   unpaid: number;
   expenses: number;
+  sales: number;
 }
 
 // since is an ISO lower bound (included) and until an ISO upper bound (excluded); null means no limit.
@@ -528,9 +529,10 @@ export async function getTotals(since: string | null, until: string | null = nul
   const db = await getDb();
   const from = since ?? "";
   const to = until ?? "9999";
-  const t = await db.getFirstAsync<{ received: number; unpaid: number }>(
+  const t = await db.getFirstAsync<{ received: number; unpaid: number; sales: number }>(
     `SELECT COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount_received END), 0) AS received,
-            COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount_received END), 0) AS unpaid
+            COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount_received END), 0) AS unpaid,
+            COUNT(*) AS sales
      FROM transactions WHERE timestamp >= ? AND timestamp < ?`,
     from,
     to
@@ -540,7 +542,50 @@ export async function getTotals(since: string | null, until: string | null = nul
     from,
     to
   );
-  return { received: t?.received ?? 0, unpaid: t?.unpaid ?? 0, expenses: e?.expenses ?? 0 };
+  return { received: t?.received ?? 0, unpaid: t?.unpaid ?? 0, expenses: e?.expenses ?? 0, sales: t?.sales ?? 0 };
+}
+
+// Expenses between two ISO bounds (to excluded), biggest first.
+export async function listExpensesBetween(from: string, to: string): Promise<{ description: string; amount: number }[]> {
+  const db = await getDb();
+  return db.getAllAsync("SELECT description, amount FROM expenses WHERE timestamp >= ? AND timestamp < ? ORDER BY amount DESC", from, to);
+}
+
+// What each client still owes from sales between two ISO bounds (to excluded), biggest first.
+export async function listUnpaidBetween(from: string, to: string): Promise<{ name: string; total: number }[]> {
+  const db = await getDb();
+  return db.getAllAsync(
+    `SELECT c.name AS name, SUM(t.amount_received) AS total
+     FROM transactions t JOIN customers c ON c.id = t.customer_id
+     WHERE t.status = 'Unpaid' AND t.timestamp >= ? AND t.timestamp < ?
+     GROUP BY c.id ORDER BY total DESC`,
+    from,
+    to
+  );
+}
+
+export interface MonthTotal {
+  month: Date;
+  received: number;
+  expenses: number;
+}
+
+// Received and expenses for every month that has activity, newest first. Months are local, so rows are bucketed here.
+export async function listMonthlyTotals(): Promise<MonthTotal[]> {
+  const db = await getDb();
+  const sales = await db.getAllAsync<{ timestamp: string; amount: number }>("SELECT timestamp, amount_received AS amount FROM transactions WHERE status = 'Paid'");
+  const spent = await db.getAllAsync<{ timestamp: string; amount: number }>("SELECT timestamp, amount FROM expenses");
+  const months = new Map<number, MonthTotal>();
+  const bucket = (ts: string) => {
+    const d = parseTs(ts);
+    const month = new Date(d.getFullYear(), d.getMonth(), 1);
+    const row = months.get(month.getTime()) ?? { month, received: 0, expenses: 0 };
+    months.set(month.getTime(), row);
+    return row;
+  };
+  for (const r of sales) bucket(r.timestamp).received += r.amount;
+  for (const r of spent) bucket(r.timestamp).expenses += r.amount;
+  return [...months.values()].sort((a, b) => b.month.getTime() - a.month.getTime());
 }
 
 // The oldest sale or expense, to know how far back the month picker can go; null when nothing is recorded.
